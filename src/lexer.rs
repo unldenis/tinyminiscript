@@ -28,8 +28,8 @@ impl ToUtf8 for [u8] {
 #[derive(Debug)]
 pub enum Token<'a> {
     Bool { position: Position, value: bool },
-    Int { position: Position, value: u32 },
-    Identifier { position: Position, value: &'a str },
+    Int(Int),
+    Identifier(Identifier<'a>),
 
     LeftParen(Position),
     RightParen(Position),
@@ -42,12 +42,24 @@ pub enum Token<'a> {
     Eof(Position),
 }
 
+#[derive(Debug)]
+pub struct Int {
+    pub position: Position,
+    pub value: u32,
+}
+
+#[derive(Debug)]
+pub struct Identifier<'a> {
+    pub position: Position,
+    pub value: &'a str,
+}
+
 impl<'a> Token<'a> {
     pub fn position(&self) -> &Position {
         match self {
             Token::Bool { position, .. } => position,
-            Token::Int { position, .. } => position,
-            Token::Identifier { position, .. } => position,
+            Token::Int(Int { position, .. }) => position,
+            Token::Identifier(Identifier { position, .. }) => position,
             Token::LeftParen(position) => position,
             Token::RightParen(position) => position,
             Token::Eq(position) => position,
@@ -63,8 +75,8 @@ impl<'a> Display for Token<'a> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Token::Bool { value, .. } => write!(f, "Bool({:?})", value),
-            Token::Identifier { value, .. } => write!(f, "Identifier({:?})", value),
-            Token::Int { value, .. } => write!(f, "Int({:?})", value),
+            Token::Identifier(Identifier { value, .. }) => write!(f, "Identifier({:?})", value),
+            Token::Int(Int { value, .. }) => write!(f, "Int({:?})", value),
             Token::LeftParen(_) => write!(f, "LeftParen"),
             Token::RightParen(_) => write!(f, "RightParen"),
             Token::Eq(_) => write!(f, "Eq"),
@@ -274,10 +286,10 @@ impl<'a> Lexer<'a> {
             Some(b) if b.is_ascii_digit() => {
                 let pos = self.get_position();
                 match self.read_number()? {
-                    Some(num) => Ok(Token::Int {
+                    Some(num) => Ok(Token::Int(Int {
                         position: pos,
                         value: num,
-                    }),
+                    })),
                     None => Err(LexerError::InvalidNumber { position: pos }),
                 }
             }
@@ -292,10 +304,10 @@ impl<'a> Lexer<'a> {
             {
                 let pos = self.get_position();
                 let identifier = self.read_identifier()?;
-                Ok(Token::Identifier {
+                Ok(Token::Identifier(Identifier {
                     position: pos,
                     value: identifier,
-                })
+                }))
             }
             Some(b) => {
                 let pos = self.get_position();
@@ -381,11 +393,11 @@ mod tests {
             token_count += 1;
             // Verify token types - accept all valid token types
             match token {
-                Token::Identifier { .. }
+                Token::Identifier(Identifier { .. })
                 | Token::LeftParen(_)
                 | Token::RightParen(_)
                 | Token::Colon(_)
-                | Token::Int { .. }
+                | Token::Int(Int { .. })
                 | Token::Comma(_) => {}
                 Token::Eof(_) => break,
                 _ => panic!("Unexpected token type: {}", token),
@@ -494,7 +506,7 @@ mod tests {
         // Get the identifier
         let token1 = lexer.next_token().unwrap();
         match token1 {
-            Token::Identifier { value, .. } => assert_eq!(value, "test"),
+            Token::Identifier(Identifier { value, .. }) => assert_eq!(value, "test"),
             _ => panic!("Expected Identifier, got {:?}", token1),
         }
 

@@ -6,9 +6,6 @@ edition = "2024"
 [dependencies]
 bitcoin = { version = "0.30", default-features = false, features = ["no-std"] }
 
-[profile.release]
-panic = "abort"
-
 [lib]
 crate-type = ["lib"]
 
