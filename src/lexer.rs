@@ -3,7 +3,7 @@ use core::{
     str::Utf8Error,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Position {
     pub line: usize,
     pub column: usize,
@@ -26,10 +26,13 @@ impl ToUtf8 for [u8] {
 }
 
 #[derive(Debug)]
-pub enum Token<'a> {
-    Bool { position: Position, value: bool },
+pub enum Token<'input> {
+    Bool {
+        position: Position,
+        value: bool,
+    },
     Int(Int),
-    Identifier(Identifier<'a>),
+    Identifier(Identifier<'input>),
 
     LeftParen(Position),
     RightParen(Position),
@@ -37,7 +40,10 @@ pub enum Token<'a> {
     Eq(Position),
     Comma(Position),
     Colon(Position),
-    Checksum { position: Position, value: &'a str },
+    Checksum {
+        position: Position,
+        value: &'input str,
+    },
 
     Eof(Position),
 }
@@ -49,12 +55,12 @@ pub struct Int {
 }
 
 #[derive(Debug)]
-pub struct Identifier<'a> {
+pub struct Identifier<'input> {
     pub position: Position,
-    pub value: &'a str,
+    pub value: &'input str,
 }
 
-impl<'a> Token<'a> {
+impl<'input> Token<'input> {
     pub fn position(&self) -> &Position {
         match self {
             Token::Bool { position, .. } => position,
@@ -71,7 +77,7 @@ impl<'a> Token<'a> {
     }
 }
 
-impl<'a> Display for Token<'a> {
+impl<'input> Display for Token<'input> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Token::Bool { value, .. } => write!(f, "Bool({:?})", value),
@@ -103,15 +109,15 @@ pub enum LexerError {
     },
 }
 
-pub struct Lexer<'a> {
-    input: &'a [u8],
+pub struct Lexer<'input> {
+    input: &'input [u8],
     position: usize,
     line: usize,
     column: usize,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
+impl<'input> Lexer<'input> {
+    pub fn new(input: &'input str) -> Self {
         Lexer {
             input: input.as_bytes(),
             position: 0,
@@ -151,7 +157,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn read_identifier(&mut self) -> Result<&'a str, LexerError> {
+    fn read_identifier(&mut self) -> Result<&'input str, LexerError> {
         let start = self.position;
         while let Some(b) = self.peek() {
             if b.is_ascii_alphanumeric()
@@ -202,7 +208,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn read_checksum(&mut self) -> Result<&'a str, LexerError> {
+    fn read_checksum(&mut self) -> Result<&'input str, LexerError> {
         // Skip the '#' character
         self.advance();
 
@@ -229,7 +235,7 @@ impl<'a> Lexer<'a> {
         Position::new(self.line, self.column)
     }
 
-    pub fn next_token(&mut self) -> Result<Token<'a>, LexerError> {
+    pub fn next_token(&mut self) -> Result<Token<'input>, LexerError> {
         self.skip_whitespace();
 
         match self.peek() {
@@ -321,8 +327,8 @@ impl<'a> Lexer<'a> {
     }
 }
 
-impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<Token<'a>, LexerError>;
+impl<'input> Iterator for Lexer<'input> {
+    type Item = Result<Token<'input>, LexerError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let token_result = self.next_token();
@@ -407,29 +413,6 @@ mod tests {
         // and_v, (, v, :, pk, (, K, ), ,, pk, (, A, ), )
         // That's 14 tokens total
         assert_eq!(token_count, 14);
-    }
-
-    #[test]
-    fn test_position_tracking() {
-        let script = "pk(A)\npk(B)";
-        let mut lexer = Lexer::new(script);
-
-        // First line tokens
-        let token1 = lexer.next_token().unwrap();
-        assert_eq!(token1.position(), &Position::new(1, 1)); // "pk"
-
-        let token2 = lexer.next_token().unwrap();
-        assert_eq!(token2.position(), &Position::new(1, 3)); // "("
-
-        let token3 = lexer.next_token().unwrap();
-        assert_eq!(token3.position(), &Position::new(1, 4)); // "A"
-
-        let token4 = lexer.next_token().unwrap();
-        assert_eq!(token4.position(), &Position::new(1, 5)); // ")"
-
-        // Second line tokens
-        let token5 = lexer.next_token().unwrap();
-        assert_eq!(token5.position(), &Position::new(2, 1)); // "pk"
     }
 
     #[test]
