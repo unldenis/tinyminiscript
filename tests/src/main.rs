@@ -1,4 +1,11 @@
-use f_miniscript::{lexer::Lexer, parser::Parser};
+mod visitor;
+
+use f_miniscript::{
+    lexer::Lexer,
+    parser::{self, Context},
+};
+
+use crate::visitor::StringBufferVisitor;
 
 fn main() {
     let script = "and_v(v:pk(K),pk(A))";
@@ -18,15 +25,28 @@ fn main() {
         "hash256(h)",
         "ripemd160(h)",
         "hash160(h)",
+        "andor(pk(K),pk(A),pk(B))",
+        "andor(pk(K),pk(A),andor(pk(B),pk(C),pk(D)))",
+        "and_v(pk(K),pk(A))",
+        "and_v(pk(K),and_v(pk(A),pk(B)))",
+        "and_b(pk(K),pk(A))",
+        "and_b(pk(K),and_v(pk(A),andor(pk(B),pk(C),pk(D))))",
     ];
 
     for script in scripts {
         println!("Parsing: {}\n", script);
         let mut lexer = Lexer::new(script);
-        let parser = Parser::new();
-        match parser.parse(&mut lexer) {
+
+        let mut ctx = Context::<32>::new(&mut lexer);
+        match parser::parse(&mut ctx) {
             Ok(fragment) => {
                 println!("Fragment: {:?}", fragment);
+
+                // Example: Using the string buffer visitor to get a formatted tree
+                println!("\nString representation:");
+                let mut string_visitor = StringBufferVisitor::new();
+                ctx.visit_fragment(&fragment, &mut string_visitor);
+                println!("{}", string_visitor.get_result());
             }
             Err(err) => {
                 println!("Error: {:?}", err);
