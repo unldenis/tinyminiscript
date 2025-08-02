@@ -46,6 +46,28 @@ pub enum Fragment<'input> {
         n: Token<'input>,
     },
 
+    // Hash Fragments
+    /// sha256(h)
+    Sha256 {
+        position: Position,
+        h: Token<'input>,
+    },
+    /// hash256(h)
+    Hash256 {
+        position: Position,
+        h: Token<'input>,
+    },
+    /// ripemd160(h)
+    Ripemd160 {
+        position: Position,
+        h: Token<'input>,
+    },
+    /// hash160(h)
+    Hash160 {
+        position: Position,
+        h: Token<'input>,
+    },
+
     // Logical Fragments
     /// andor(X,Y,Z)
     AndOr {
@@ -255,6 +277,58 @@ impl<'input> Parser<'input> {
                     return Ok(Fragment::After {
                         position: identifier.position.clone(),
                         n: n_token,
+                    });
+                }
+                "sha256" => {
+                    self.expect_token(lexer, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                    let h_token = self
+                        .expect_token(lexer, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+
+                    self.expect_token(lexer, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                    return Ok(Fragment::Sha256 {
+                        position: identifier.position.clone(),
+                        h: h_token,
+                    });
+                }
+                "hash256" => {
+                    self.expect_token(lexer, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                    let h_token = self
+                        .expect_token(lexer, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+
+                    self.expect_token(lexer, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                    return Ok(Fragment::Hash256 {
+                        position: identifier.position.clone(),
+                        h: h_token,
+                    });
+                }
+                "ripemd160" => {
+                    self.expect_token(lexer, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                    let h_token = self
+                        .expect_token(lexer, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+
+                    self.expect_token(lexer, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                    return Ok(Fragment::Ripemd160 {
+                        position: identifier.position.clone(),
+                        h: h_token,
+                    });
+                }
+                "hash160" => {
+                    self.expect_token(lexer, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                    let h_token = self
+                        .expect_token(lexer, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+
+                    self.expect_token(lexer, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                    return Ok(Fragment::Hash160 {
+                        position: identifier.position.clone(),
+                        h: h_token,
                     });
                 }
                 _ => {}

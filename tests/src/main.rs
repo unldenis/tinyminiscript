@@ -14,6 +14,10 @@ fn main() {
         "after(13)",
         "after(0)",
         "older(1)",
+        "sha256(h)",
+        "hash256(h)",
+        "ripemd160(h)",
+        "hash160(h)",
     ];
 
     for script in scripts {
