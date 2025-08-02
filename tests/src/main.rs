@@ -10,6 +10,10 @@ fn main() {
         "pk_h([d6043800/0'/0'/18']03efdee34c0009fd175f3b20b5e5a5517fd5d16746f2e635b44617adafeaebc388)#4ahsl9pk",
         "pk(K)",
         "pkh(K)",
+        "older(555)",
+        "after(13)",
+        "after(0)",
+        "older(1)",
     ];
 
     for script in scripts {

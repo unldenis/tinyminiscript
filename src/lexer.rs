@@ -276,20 +276,65 @@ impl<'input> Lexer<'input> {
             Some(b'0') => {
                 let pos = self.get_position();
                 self.advance();
-                Ok(Token::Bool {
-                    position: pos,
-                    value: false,
-                })
+                // Check if there are more digits after '0'
+                if let Some(b) = self.peek() {
+                    if b.is_ascii_digit() {
+                        // This is part of a larger number, rewind and parse as number
+                        self.position = pos.column - 1; // Rewind to start of number
+                        match self.read_number()? {
+                            Some(num) => Ok(Token::Int(Int {
+                                position: pos,
+                                value: num,
+                            })),
+                            None => Err(LexerError::InvalidNumber { position: pos }),
+                        }
+                    } else {
+                        // Standalone '0', treat as boolean false
+                        Ok(Token::Bool {
+                            position: pos,
+                            value: false,
+                        })
+                    }
+                } else {
+                    // End of input, treat as boolean false
+                    Ok(Token::Bool {
+                        position: pos,
+                        value: false,
+                    })
+                }
             }
             Some(b'1') => {
                 let pos = self.get_position();
                 self.advance();
-                Ok(Token::Bool {
-                    position: pos,
-                    value: true,
-                })
+                // Check if there are more digits after '1'
+                if let Some(b) = self.peek() {
+                    if b.is_ascii_digit() {
+                        // This is part of a larger number, rewind and parse as number
+                        self.position = pos.column - 1; // Rewind to start of number
+                        match self.read_number()? {
+                            Some(num) => Ok(Token::Int(Int {
+                                position: pos,
+                                value: num,
+                            })),
+                            None => Err(LexerError::InvalidNumber { position: pos }),
+                        }
+                    } else {
+                        // Standalone '1', treat as boolean true
+                        Ok(Token::Bool {
+                            position: pos,
+                            value: true,
+                        })
+                    }
+                } else {
+                    // End of input, treat as boolean true
+                    Ok(Token::Bool {
+                        position: pos,
+                        value: true,
+                    })
+                }
             }
-            Some(b) if b.is_ascii_digit() => {
+
+            Some(b) if b.is_ascii_digit() && b != b'0' && b != b'1' => {
                 let pos = self.get_position();
                 match self.read_number()? {
                     Some(num) => Ok(Token::Int(Int {

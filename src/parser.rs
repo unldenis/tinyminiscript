@@ -36,9 +36,15 @@ pub enum Fragment<'input> {
 
     // Time fragments
     /// older(n)
-    Older { position: &'input Position, n: Int },
+    Older {
+        position: Position,
+        n: Token<'input>,
+    },
     /// after(n)
-    After { position: &'input Position, n: Int },
+    After {
+        position: Position,
+        n: Token<'input>,
+    },
 
     // Logical Fragments
     /// andor(X,Y,Z)
@@ -199,6 +205,56 @@ impl<'input> Parser<'input> {
                     return Ok(Fragment::Pkh {
                         position: identifier.position.clone(),
                         key: key_token,
+                    });
+                }
+                "older" => {
+                    self.expect_token(lexer, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                    let n_token = self.expect_token(lexer, "Int or Bool", |t| {
+                        matches!(t, Token::Int(_) | Token::Bool { .. })
+                    })?;
+
+                    self.expect_token(lexer, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                    // If the n_token is a bool, we need to convert it to an int
+                    if let Token::Bool { position, value } = &n_token {
+                        return Ok(Fragment::Older {
+                            position: identifier.position.clone(),
+                            n: Token::Int(Int {
+                                position: position.clone(),
+                                value: if *value { 1 } else { 0 },
+                            }),
+                        });
+                    }
+
+                    return Ok(Fragment::Older {
+                        position: identifier.position.clone(),
+                        n: n_token,
+                    });
+                }
+                "after" => {
+                    self.expect_token(lexer, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                    let n_token = self.expect_token(lexer, "Int or Bool", |t| {
+                        matches!(t, Token::Int(_) | Token::Bool { .. })
+                    })?;
+
+                    self.expect_token(lexer, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                    // If the n_token is a bool, we need to convert it to an int
+                    if let Token::Bool { position, value } = &n_token {
+                        return Ok(Fragment::After {
+                            position: identifier.position.clone(),
+                            n: Token::Int(Int {
+                                position: position.clone(),
+                                value: if *value { 1 } else { 0 },
+                            }),
+                        });
+                    }
+
+                    return Ok(Fragment::After {
+                        position: identifier.position.clone(),
+                        n: n_token,
                     });
                 }
                 _ => {}
