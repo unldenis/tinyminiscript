@@ -54,7 +54,7 @@ fn main() {
                 // Example: Using the string buffer visitor to get a formatted tree
                 println!("\nString representation:");
                 let mut string_visitor = StringBufferVisitor::new();
-                ctx.visit_fragment(&fragment, &mut string_visitor);
+                ctx.visit_node(&fragment, &mut string_visitor);
                 println!("{}", string_visitor.get_result());
             }
             Err(err) => {
