@@ -38,6 +38,8 @@ fn main() {
         "or_i(pk(K),pk(A))",
         "thresh(2,pk(K),pk(A),pk(B))",
         "thresh(2,pk(K),and_v(pk(A),pk(B)),pk(C))",
+        "multi(2,K,A,B)",
+        "multi_a(2,K,A,B)",
     ];
 
     for script in scripts {

@@ -133,16 +133,16 @@ pub enum Fragment<'input> {
     ///  multi(k,key1,...,keyn)
     /// (P2WSH only)
     Multi {
-        position: &'input Position,
-        k: Int,
-        keys: Vec<&'input Identifier<'input>, 16>,
+        position: Position,
+        k: Token<'input>,
+        keys: Vec<Token<'input>, 16>,
     },
     /// multi_a(k,key1,...,keyn)
     /// (Tapscript only)
     Multi_a {
-        position: &'input Position,
+        position: Position,
         k: Int,
-        keys: Vec<&'input Identifier<'input>, 16>,
+        keys: Vec<Token<'input>, 16>,
     },
 }
 
@@ -160,6 +160,7 @@ pub enum ParserError<'input> {
     },
     FragmentOverflow(Fragment<'input>),
     ThreshNotEnoughFragments(Position),
+    MultiNotEnoughKeys(Position),
 }
 
 //
@@ -411,6 +412,130 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                     position: identifier.position.clone(),
                     k: k_token,
                     xs: xs,
+                });
+            }
+            _ => {}
+        },
+        _ => {}
+    }
+    parse_multi_fragment(next_token, ctx)
+}
+
+fn parse_multi_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
+    next_token: Token<'input>,
+    ctx: &mut Context<'input, FRAGMENT_BUFFER_SIZE>,
+) -> Result<Fragment<'input>, ParserError<'input>> {
+    match &next_token {
+        Token::Identifier(identifier) => match identifier.value {
+            "multi" => {
+                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                let k_token = expect_token(ctx, "Int", |t| matches!(t, Token::Int(_)))?;
+                let k_value = if let Token::Int(int) = &k_token {
+                    int.value
+                } else {
+                    unreachable!()
+                };
+
+                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
+
+                let mut keys = Vec::new();
+
+                // Parse first key
+                let first_key =
+                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                keys.push(first_key).unwrap();
+
+                // Parse remaining keys
+                loop {
+                    let next_token = parse_next_token(ctx)?;
+                    match next_token {
+                        Token::RightParen(_) => {
+                            // End of multi
+                            break;
+                        }
+                        Token::Comma(_) => {
+                            // Continue with next key
+                            let key_token = expect_token(ctx, "Identifier", |t| {
+                                matches!(t, Token::Identifier(_))
+                            })?;
+                            keys.push(key_token).unwrap();
+                        }
+                        _ => {
+                            return Err(ParserError::UnexpectedToken {
+                                expected: "Comma or RightParen",
+                                found: next_token,
+                            });
+                        }
+                    }
+                }
+
+                // Validate that we have at least one key
+                if keys.is_empty() {
+                    return Err(ParserError::MultiNotEnoughKeys(identifier.position.clone()));
+                }
+
+                return Ok(Fragment::Multi {
+                    position: identifier.position.clone(),
+                    k: k_token,
+                    keys: keys,
+                });
+            }
+            "multi_a" => {
+                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                let k_token = expect_token(ctx, "Int", |t| matches!(t, Token::Int(_)))?;
+                let k_value = if let Token::Int(int) = &k_token {
+                    int.value
+                } else {
+                    unreachable!()
+                };
+
+                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
+
+                let mut keys = Vec::new();
+
+                // Parse first key
+                let first_key =
+                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                keys.push(first_key).unwrap();
+
+                // Parse remaining keys
+                loop {
+                    let next_token = parse_next_token(ctx)?;
+                    match next_token {
+                        Token::RightParen(_) => {
+                            // End of multi_a
+                            break;
+                        }
+                        Token::Comma(_) => {
+                            // Continue with next key
+                            let key_token = expect_token(ctx, "Identifier", |t| {
+                                matches!(t, Token::Identifier(_))
+                            })?;
+                            keys.push(key_token).unwrap();
+                        }
+                        _ => {
+                            return Err(ParserError::UnexpectedToken {
+                                expected: "Comma or RightParen",
+                                found: next_token,
+                            });
+                        }
+                    }
+                }
+
+                // Validate that we have at least one key
+                if keys.is_empty() {
+                    return Err(ParserError::MultiNotEnoughKeys(identifier.position.clone()));
+                }
+
+                return Ok(Fragment::Multi_a {
+                    position: identifier.position.clone(),
+                    k: Int {
+                        position: identifier.position.clone(),
+                        value: k_value,
+                    },
+                    keys: keys,
                 });
             }
             _ => {}
