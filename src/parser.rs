@@ -126,9 +126,9 @@ pub enum Fragment<'input> {
     // Threshold Fragments
     /// thresh(k,X1,...,Xn)
     Thresh {
-        position: &'input Position,
-        k: Int,
-        xs: Vec<&'input Fragment<'input>, 16>,
+        position: Position,
+        k: Token<'input>,
+        xs: Vec<usize, 16>,
     },
     ///  multi(k,key1,...,keyn)
     /// (P2WSH only)
@@ -159,6 +159,7 @@ pub enum ParserError<'input> {
         found: Token<'input>,
     },
     FragmentOverflow(Fragment<'input>),
+    ThreshNotEnoughFragments(Position),
 }
 
 //
@@ -238,7 +239,7 @@ pub fn parse<'input, const FRAGMENT_BUFFER_SIZE: usize>(
 fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
     ctx: &mut Context<'input, FRAGMENT_BUFFER_SIZE>,
 ) -> Result<Fragment<'input>, ParserError<'input>> {
-    let next_token = next_token(ctx)?;
+    let next_token = parse_next_token(ctx)?;
     match &next_token {
         Token::Identifier(identifier) => match identifier.value {
             "andor" => {
@@ -363,6 +364,53 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                     position: identifier.position.clone(),
                     x: ctx.push_fragment(x)?,
                     z: ctx.push_fragment(z)?,
+                });
+            }
+            "thresh" => {
+                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                let k_token = expect_token(ctx, "Int", |t| matches!(t, Token::Int(_)))?;
+
+                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
+
+                let mut xs = Vec::new();
+
+                // Parse fragments until we hit the closing parenthesis
+                loop {
+                    let fragment = parse_logical_fragment(ctx)?;
+                    xs.push(ctx.push_fragment(fragment)?).unwrap();
+
+                    // Check what comes next
+                    let next_token = parse_next_token(ctx)?;
+                    match next_token {
+                        Token::RightParen(_) => {
+                            // End of thresh
+                            break;
+                        }
+                        Token::Comma(_) => {
+                            // Continue with next fragment
+                            continue;
+                        }
+                        _ => {
+                            return Err(ParserError::UnexpectedToken {
+                                expected: "Comma or RightParen",
+                                found: next_token,
+                            });
+                        }
+                    }
+                }
+
+                // Validate that we have at least one fragment
+                if xs.is_empty() {
+                    return Err(ParserError::ThreshNotEnoughFragments(
+                        identifier.position.clone(),
+                    ));
+                }
+
+                return Ok(Fragment::Thresh {
+                    position: identifier.position.clone(),
+                    k: k_token,
+                    xs: xs,
                 });
             }
             _ => {}
@@ -557,7 +605,7 @@ fn parse_basic_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
     }
 }
 
-fn next_token<'input, const FRAGMENT_BUFFER_SIZE: usize>(
+fn parse_next_token<'input, const FRAGMENT_BUFFER_SIZE: usize>(
     ctx: &mut Context<'input, FRAGMENT_BUFFER_SIZE>,
 ) -> Result<Token<'input>, ParserError<'input>> {
     let token_result = ctx.lexer.next_token();
@@ -573,7 +621,7 @@ fn expect_token<'input, const FRAGMENT_BUFFER_SIZE: usize>(
     expected: &'static str,
     token_matcher: impl Fn(&Token<'input>) -> bool,
 ) -> Result<Token<'input>, ParserError<'input>> {
-    let token = next_token(ctx)?;
+    let token = parse_next_token(ctx)?;
     if token_matcher(&token) {
         Ok(token)
     } else {

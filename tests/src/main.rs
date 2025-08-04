@@ -36,6 +36,8 @@ fn main() {
         "or_c(pk(K),pk(A))",
         "or_d(pk(K),pk(A))",
         "or_i(pk(K),pk(A))",
+        "thresh(2,pk(K),pk(A),pk(B))",
+        "thresh(2,pk(K),and_v(pk(A),pk(B)),pk(C))",
     ];
 
     for script in scripts {

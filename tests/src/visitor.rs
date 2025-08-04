@@ -184,7 +184,9 @@ impl<'input> FragmentVisitor<'input> for StringBufferVisitor {
                 self.write_line(&format!("Thresh(k={:?}, [", k));
                 self.indent();
                 for x in xs.iter() {
-                    self.visit_fragment(x, ctx);
+                    if let Some(x_fragment) = ctx.get_fragment(*x) {
+                        self.visit_fragment(x_fragment, ctx);
+                    }
                 }
                 self.dedent();
                 self.write_line("])");
