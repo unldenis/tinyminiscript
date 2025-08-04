@@ -8,7 +8,7 @@ use f_miniscript::{
 use crate::visitor::StringBufferVisitor;
 
 fn main() {
-    let script = "and_v(v:pk(K),pk(A))";
+    // let script = "and_v(v:pk(K),pk(A))";
 
     let scripts = vec![
         "0",
@@ -37,7 +37,7 @@ fn main() {
         println!("Parsing: {}\n", script);
         let mut lexer = Lexer::new(script);
 
-        let mut ctx = Context::<32>::new(&mut lexer);
+        let mut ctx = Context::new(&mut lexer);
         match parser::parse(&mut ctx) {
             Ok(fragment) => {
                 println!("Fragment: {:?}", fragment);
@@ -50,6 +50,7 @@ fn main() {
             }
             Err(err) => {
                 println!("Error: {:?}", err);
+                break;
             }
         }
         println!("--------------------------------");

@@ -165,7 +165,7 @@ pub enum ParserError<'input> {
 // Context
 //
 
-pub struct Context<'input, const FRAGMENT_BUFFER_SIZE: usize> {
+pub struct Context<'input, const FRAGMENT_BUFFER_SIZE: usize = 256> {
     lexer: &'input mut Lexer<'input>,
 
     fragments: Vec<Fragment<'input>, FRAGMENT_BUFFER_SIZE>,
@@ -211,7 +211,7 @@ impl<'input, const FRAGMENT_BUFFER_SIZE: usize> Context<'input, FRAGMENT_BUFFER_
 // FragmentVisitor trait
 //
 
-pub trait FragmentVisitor<'input, const FRAGMENT_BUFFER_SIZE: usize> {
+pub trait FragmentVisitor<'input, const FRAGMENT_BUFFER_SIZE: usize = 256> {
     fn visit_fragment(
         &mut self,
         fragment: &Fragment<'input>,

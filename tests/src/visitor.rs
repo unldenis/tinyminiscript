@@ -40,13 +40,13 @@ impl StringBufferVisitor {
     }
 }
 
-impl<'input, const FRAGMENT_BUFFER_SIZE: usize> FragmentVisitor<'input, FRAGMENT_BUFFER_SIZE>
+impl<'input> FragmentVisitor<'input>
     for StringBufferVisitor
 {
     fn visit_fragment(
         &mut self,
         fragment: &Fragment<'input>,
-        ctx: &Context<'input, FRAGMENT_BUFFER_SIZE>,
+        ctx: &Context<'input>,
     ) {
         match fragment {
             Fragment::False { position } => {
