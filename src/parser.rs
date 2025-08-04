@@ -94,33 +94,33 @@ pub enum Fragment<'input> {
     },
     /// and_n(X,Y) = andor(X,Y,0)
     And_n {
-        position: &'input Position,
-        x: &'input Fragment<'input>,
-        y: &'input Fragment<'input>,
+        position: Position,
+        x: usize,
+        y: usize,
     },
     /// or_b(X,Z)
     Or_b {
-        position: &'input Position,
-        x: &'input Fragment<'input>,
-        z: &'input Fragment<'input>,
+        position: Position,
+        x: usize,
+        z: usize,
     },
     /// or_c(X,Z)
     Or_c {
-        position: &'input Position,
-        x: &'input Fragment<'input>,
-        z: &'input Fragment<'input>,
+        position: Position,
+        x: usize,
+        z: usize,
     },
     /// or_d(X,Z)
     Or_d {
-        position: &'input Position,
-        x: &'input Fragment<'input>,
-        z: &'input Fragment<'input>,
+        position: Position,
+        x: usize,
+        z: usize,
     },
     /// or_i(X,Z)
     Or_i {
-        position: &'input Position,
-        x: &'input Fragment<'input>,
-        z: &'input Fragment<'input>,
+        position: Position,
+        x: usize,
+        z: usize,
     },
 
     // Threshold Fragments
@@ -288,6 +288,81 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                     position: identifier.position.clone(),
                     x: ctx.push_fragment(x)?,
                     y: ctx.push_fragment(y)?,
+                });
+            }
+            "and_n" => {
+                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                let x = parse_logical_fragment(ctx)?;
+                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
+
+                let y = parse_logical_fragment(ctx)?;
+                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                return Ok(Fragment::And_n {
+                    position: identifier.position.clone(),
+                    x: ctx.push_fragment(x)?,
+                    y: ctx.push_fragment(y)?,
+                });
+            }
+            "or_b" => {
+                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                let x = parse_logical_fragment(ctx)?;
+                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
+
+                let z = parse_logical_fragment(ctx)?;
+                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                return Ok(Fragment::Or_b {
+                    position: identifier.position.clone(),
+                    x: ctx.push_fragment(x)?,
+                    z: ctx.push_fragment(z)?,
+                });
+            }
+            "or_c" => {
+                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                let x = parse_logical_fragment(ctx)?;
+                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
+
+                let z = parse_logical_fragment(ctx)?;
+                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                return Ok(Fragment::Or_c {
+                    position: identifier.position.clone(),
+                    x: ctx.push_fragment(x)?,
+                    z: ctx.push_fragment(z)?,
+                });
+            }
+            "or_d" => {
+                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                let x = parse_logical_fragment(ctx)?;
+                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
+
+                let z = parse_logical_fragment(ctx)?;
+                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                return Ok(Fragment::Or_d {
+                    position: identifier.position.clone(),
+                    x: ctx.push_fragment(x)?,
+                    z: ctx.push_fragment(z)?,
+                });
+            }
+            "or_i" => {
+                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
+
+                let x = parse_logical_fragment(ctx)?;
+                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
+
+                let z = parse_logical_fragment(ctx)?;
+                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
+
+                return Ok(Fragment::Or_i {
+                    position: identifier.position.clone(),
+                    x: ctx.push_fragment(x)?,
+                    z: ctx.push_fragment(z)?,
                 });
             }
             _ => {}

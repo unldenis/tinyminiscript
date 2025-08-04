@@ -31,6 +31,11 @@ fn main() {
         "and_v(pk(K),and_v(pk(A),pk(B)))",
         "and_b(pk(K),pk(A))",
         "and_b(pk(K),and_v(pk(A),andor(pk(B),pk(C),pk(D))))",
+        "and_n(pk(K),pk(A))",
+        "or_b(pk(K),pk(A))",
+        "or_c(pk(K),pk(A))",
+        "or_d(pk(K),pk(A))",
+        "or_i(pk(K),pk(A))",
     ];
 
     for script in scripts {

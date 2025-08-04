@@ -40,14 +40,8 @@ impl StringBufferVisitor {
     }
 }
 
-impl<'input> FragmentVisitor<'input>
-    for StringBufferVisitor
-{
-    fn visit_fragment(
-        &mut self,
-        fragment: &Fragment<'input>,
-        ctx: &Context<'input>,
-    ) {
+impl<'input> FragmentVisitor<'input> for StringBufferVisitor {
+    fn visit_fragment(&mut self, fragment: &Fragment<'input>, ctx: &Context<'input>) {
         match fragment {
             Fragment::False { position } => {
                 self.write_line("False");
@@ -129,40 +123,60 @@ impl<'input> FragmentVisitor<'input>
             Fragment::And_n { position, x, y } => {
                 self.write_line("And_n(");
                 self.indent();
-                self.visit_fragment(x, ctx);
-                self.visit_fragment(y, ctx);
+                if let Some(x_fragment) = ctx.get_fragment(*x) {
+                    self.visit_fragment(x_fragment, ctx);
+                }
+                if let Some(y_fragment) = ctx.get_fragment(*y) {
+                    self.visit_fragment(y_fragment, ctx);
+                }
                 self.dedent();
                 self.write_line(")");
             }
             Fragment::Or_b { position, x, z } => {
                 self.write_line("Or_b(");
                 self.indent();
-                self.visit_fragment(x, ctx);
-                self.visit_fragment(z, ctx);
+                if let Some(x_fragment) = ctx.get_fragment(*x) {
+                    self.visit_fragment(x_fragment, ctx);
+                }
+                if let Some(z_fragment) = ctx.get_fragment(*z) {
+                    self.visit_fragment(z_fragment, ctx);
+                }
                 self.dedent();
                 self.write_line(")");
             }
             Fragment::Or_c { position, x, z } => {
                 self.write_line("Or_c(");
                 self.indent();
-                self.visit_fragment(x, ctx);
-                self.visit_fragment(z, ctx);
+                if let Some(x_fragment) = ctx.get_fragment(*x) {
+                    self.visit_fragment(x_fragment, ctx);
+                }
+                if let Some(z_fragment) = ctx.get_fragment(*z) {
+                    self.visit_fragment(z_fragment, ctx);
+                }
                 self.dedent();
                 self.write_line(")");
             }
             Fragment::Or_d { position, x, z } => {
                 self.write_line("Or_d(");
                 self.indent();
-                self.visit_fragment(x, ctx);
-                self.visit_fragment(z, ctx);
+                if let Some(x_fragment) = ctx.get_fragment(*x) {
+                    self.visit_fragment(x_fragment, ctx);
+                }
+                if let Some(z_fragment) = ctx.get_fragment(*z) {
+                    self.visit_fragment(z_fragment, ctx);
+                }
                 self.dedent();
                 self.write_line(")");
             }
             Fragment::Or_i { position, x, z } => {
                 self.write_line("Or_i(");
                 self.indent();
-                self.visit_fragment(x, ctx);
-                self.visit_fragment(z, ctx);
+                if let Some(x_fragment) = ctx.get_fragment(*x) {
+                    self.visit_fragment(x_fragment, ctx);
+                }
+                if let Some(z_fragment) = ctx.get_fragment(*z) {
+                    self.visit_fragment(z_fragment, ctx);
+                }
                 self.dedent();
                 self.write_line(")");
             }
