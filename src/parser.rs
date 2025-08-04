@@ -1,4 +1,4 @@
-use core::{fmt::Debug, marker::PhantomData};
+use core::fmt::Debug;
 
 use heapless::Vec;
 
@@ -18,58 +18,52 @@ pub enum Fragment<'input> {
 
     // Key Fragments
     /// pk_k(key)
-    Pk_k {
+    PkK {
         position: Position,
-        key: Token<'input>,
+        key: Identifier<'input>,
     },
     /// pk_h(key)
-    Pk_h {
+    PkH {
         position: Position,
-        key: Token<'input>,
+        key: Identifier<'input>,
     },
     /// pk(key) = c:pk_k(key)
     Pk {
         position: Position,
-        key: Token<'input>,
+        key: Identifier<'input>,
     },
     /// pkh(key) = c:pk_h(key)
     Pkh {
         position: Position,
-        key: Token<'input>,
+        key: Identifier<'input>,
     },
 
     // Time fragments
     /// older(n)
-    Older {
-        position: Position,
-        n: Token<'input>,
-    },
+    Older { position: Position, n: Int },
     /// after(n)
-    After {
-        position: Position,
-        n: Token<'input>,
-    },
+    After { position: Position, n: Int },
 
     // Hash Fragments
     /// sha256(h)
     Sha256 {
         position: Position,
-        h: Token<'input>,
+        h: Identifier<'input>,
     },
     /// hash256(h)
     Hash256 {
         position: Position,
-        h: Token<'input>,
+        h: Identifier<'input>,
     },
     /// ripemd160(h)
     Ripemd160 {
         position: Position,
-        h: Token<'input>,
+        h: Identifier<'input>,
     },
     /// hash160(h)
     Hash160 {
         position: Position,
-        h: Token<'input>,
+        h: Identifier<'input>,
     },
 
     // Logical Fragments
@@ -81,43 +75,43 @@ pub enum Fragment<'input> {
         z: usize,
     },
     /// and_v(X,Y)
-    And_v {
+    AndV {
         position: Position,
         x: usize,
         y: usize,
     },
     /// and_b(X,Y)
-    And_b {
+    AndB {
         position: Position,
         x: usize,
         y: usize,
     },
     /// and_n(X,Y) = andor(X,Y,0)
-    And_n {
+    AndN {
         position: Position,
         x: usize,
         y: usize,
     },
     /// or_b(X,Z)
-    Or_b {
+    OrB {
         position: Position,
         x: usize,
         z: usize,
     },
     /// or_c(X,Z)
-    Or_c {
+    OrC {
         position: Position,
         x: usize,
         z: usize,
     },
     /// or_d(X,Z)
-    Or_d {
+    OrD {
         position: Position,
         x: usize,
         z: usize,
     },
     /// or_i(X,Z)
-    Or_i {
+    OrI {
         position: Position,
         x: usize,
         z: usize,
@@ -127,22 +121,22 @@ pub enum Fragment<'input> {
     /// thresh(k,X1,...,Xn)
     Thresh {
         position: Position,
-        k: Token<'input>,
+        k: Int,
         xs: Vec<usize, 16>,
     },
     ///  multi(k,key1,...,keyn)
     /// (P2WSH only)
     Multi {
         position: Position,
-        k: Token<'input>,
-        keys: Vec<Token<'input>, 16>,
+        k: Int,
+        keys: Vec<Identifier<'input>, 16>,
     },
     /// multi_a(k,key1,...,keyn)
     /// (Tapscript only)
-    Multi_a {
+    MultiA {
         position: Position,
         k: Int,
-        keys: Vec<Token<'input>, 16>,
+        keys: Vec<Identifier<'input>, 16>,
     },
 }
 
@@ -271,7 +265,7 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                 let y = parse_logical_fragment(ctx)?;
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                return Ok(Fragment::And_v {
+                return Ok(Fragment::AndV {
                     position: identifier.position.clone(),
                     x: ctx.push_fragment(x)?,
                     y: ctx.push_fragment(y)?,
@@ -286,7 +280,7 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                 let y = parse_logical_fragment(ctx)?;
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                return Ok(Fragment::And_b {
+                return Ok(Fragment::AndB {
                     position: identifier.position.clone(),
                     x: ctx.push_fragment(x)?,
                     y: ctx.push_fragment(y)?,
@@ -301,7 +295,7 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                 let y = parse_logical_fragment(ctx)?;
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                return Ok(Fragment::And_n {
+                return Ok(Fragment::AndN {
                     position: identifier.position.clone(),
                     x: ctx.push_fragment(x)?,
                     y: ctx.push_fragment(y)?,
@@ -316,7 +310,7 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                 let z = parse_logical_fragment(ctx)?;
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                return Ok(Fragment::Or_b {
+                return Ok(Fragment::OrB {
                     position: identifier.position.clone(),
                     x: ctx.push_fragment(x)?,
                     z: ctx.push_fragment(z)?,
@@ -331,7 +325,7 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                 let z = parse_logical_fragment(ctx)?;
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                return Ok(Fragment::Or_c {
+                return Ok(Fragment::OrC {
                     position: identifier.position.clone(),
                     x: ctx.push_fragment(x)?,
                     z: ctx.push_fragment(z)?,
@@ -346,7 +340,7 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                 let z = parse_logical_fragment(ctx)?;
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                return Ok(Fragment::Or_d {
+                return Ok(Fragment::OrD {
                     position: identifier.position.clone(),
                     x: ctx.push_fragment(x)?,
                     z: ctx.push_fragment(z)?,
@@ -361,7 +355,7 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                 let z = parse_logical_fragment(ctx)?;
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                return Ok(Fragment::Or_i {
+                return Ok(Fragment::OrI {
                     position: identifier.position.clone(),
                     x: ctx.push_fragment(x)?,
                     z: ctx.push_fragment(z)?,
@@ -370,7 +364,7 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
             "thresh" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let k_token = expect_token(ctx, "Int", |t| matches!(t, Token::Int(_)))?;
+                let k = expect_int(ctx)?;
 
                 expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
 
@@ -410,7 +404,7 @@ fn parse_logical_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
 
                 return Ok(Fragment::Thresh {
                     position: identifier.position.clone(),
-                    k: k_token,
+                    k,
                     xs: xs,
                 });
             }
@@ -430,20 +424,14 @@ fn parse_multi_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
             "multi" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let k_token = expect_token(ctx, "Int", |t| matches!(t, Token::Int(_)))?;
-                let k_value = if let Token::Int(int) = &k_token {
-                    int.value
-                } else {
-                    unreachable!()
-                };
+                let k = expect_int(ctx)?;
 
                 expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
 
                 let mut keys = Vec::new();
 
                 // Parse first key
-                let first_key =
-                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                let first_key = expect_identifier(ctx)?;
                 keys.push(first_key).unwrap();
 
                 // Parse remaining keys
@@ -456,10 +444,8 @@ fn parse_multi_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                         }
                         Token::Comma(_) => {
                             // Continue with next key
-                            let key_token = expect_token(ctx, "Identifier", |t| {
-                                matches!(t, Token::Identifier(_))
-                            })?;
-                            keys.push(key_token).unwrap();
+                            let key = expect_identifier(ctx)?;
+                            keys.push(key).unwrap();
                         }
                         _ => {
                             return Err(ParserError::UnexpectedToken {
@@ -477,27 +463,21 @@ fn parse_multi_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
 
                 return Ok(Fragment::Multi {
                     position: identifier.position.clone(),
-                    k: k_token,
+                    k,
                     keys: keys,
                 });
             }
             "multi_a" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let k_token = expect_token(ctx, "Int", |t| matches!(t, Token::Int(_)))?;
-                let k_value = if let Token::Int(int) = &k_token {
-                    int.value
-                } else {
-                    unreachable!()
-                };
+                let k = expect_int(ctx)?;
 
                 expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
 
                 let mut keys = Vec::new();
 
                 // Parse first key
-                let first_key =
-                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                let first_key = expect_identifier(ctx)?;
                 keys.push(first_key).unwrap();
 
                 // Parse remaining keys
@@ -510,10 +490,8 @@ fn parse_multi_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                         }
                         Token::Comma(_) => {
                             // Continue with next key
-                            let key_token = expect_token(ctx, "Identifier", |t| {
-                                matches!(t, Token::Identifier(_))
-                            })?;
-                            keys.push(key_token).unwrap();
+                            let key = expect_identifier(ctx)?;
+                            keys.push(key).unwrap();
                         }
                         _ => {
                             return Err(ParserError::UnexpectedToken {
@@ -529,12 +507,9 @@ fn parse_multi_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
                     return Err(ParserError::MultiNotEnoughKeys(identifier.position.clone()));
                 }
 
-                return Ok(Fragment::Multi_a {
+                return Ok(Fragment::MultiA {
                     position: identifier.position.clone(),
-                    k: Int {
-                        position: identifier.position.clone(),
-                        value: k_value,
-                    },
+                    k,
                     keys: keys,
                 });
             }
@@ -554,155 +529,121 @@ fn parse_key_fragment<'input, const FRAGMENT_BUFFER_SIZE: usize>(
             "pk_k" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let key_token =
-                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                let key = expect_identifier(ctx)?;
 
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                return Ok(Fragment::Pk_k {
+                return Ok(Fragment::PkK {
                     position: identifier.position.clone(),
-                    key: key_token,
+                    key,
                 });
             }
             "pk_h" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let key_token =
-                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                let key = expect_identifier(ctx)?;
 
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                return Ok(Fragment::Pk_h {
+                return Ok(Fragment::PkH {
                     position: identifier.position.clone(),
-                    key: key_token,
+                    key,
                 });
             }
             "pk" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let key_token =
-                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                let key = expect_identifier(ctx)?;
 
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Fragment::Pk {
                     position: identifier.position.clone(),
-                    key: key_token,
+                    key,
                 });
             }
             "pkh" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let key_token =
-                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                let key = expect_identifier(ctx)?;
 
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Fragment::Pkh {
                     position: identifier.position.clone(),
-                    key: key_token,
+                    key,
                 });
             }
             "older" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let n_token = expect_token(ctx, "Int or Bool", |t| {
-                    matches!(t, Token::Int(_) | Token::Bool { .. })
-                })?;
+                let n = expect_int(ctx)?;
 
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                // If the n_token is a bool, we need to convert it to an int
-                if let Token::Bool { position, value } = &n_token {
-                    return Ok(Fragment::Older {
-                        position: identifier.position.clone(),
-                        n: Token::Int(Int {
-                            position: position.clone(),
-                            value: if *value { 1 } else { 0 },
-                        }),
-                    });
-                }
-
                 return Ok(Fragment::Older {
                     position: identifier.position.clone(),
-                    n: n_token,
+                    n,
                 });
             }
             "after" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let n_token = expect_token(ctx, "Int or Bool", |t| {
-                    matches!(t, Token::Int(_) | Token::Bool { .. })
-                })?;
+                let n = expect_int(ctx)?;
 
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
-                // If the n_token is a bool, we need to convert it to an int
-                if let Token::Bool { position, value } = &n_token {
-                    return Ok(Fragment::After {
-                        position: identifier.position.clone(),
-                        n: Token::Int(Int {
-                            position: position.clone(),
-                            value: if *value { 1 } else { 0 },
-                        }),
-                    });
-                }
-
                 return Ok(Fragment::After {
                     position: identifier.position.clone(),
-                    n: n_token,
+                    n,
                 });
             }
             "sha256" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let h_token =
-                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                let h = expect_identifier(ctx)?;
 
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Fragment::Sha256 {
                     position: identifier.position.clone(),
-                    h: h_token,
+                    h,
                 });
             }
             "hash256" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let h_token =
-                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                let h = expect_identifier(ctx)?;
 
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Fragment::Hash256 {
                     position: identifier.position.clone(),
-                    h: h_token,
+                    h,
                 });
             }
             "ripemd160" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let h_token =
-                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                let h = expect_identifier(ctx)?;
 
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Fragment::Ripemd160 {
                     position: identifier.position.clone(),
-                    h: h_token,
+                    h,
                 });
             }
             "hash160" => {
                 expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
 
-                let h_token =
-                    expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+                let h = expect_identifier(ctx)?;
 
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Fragment::Hash160 {
                     position: identifier.position.clone(),
-                    h: h_token,
+                    h,
                 });
             }
             _ => {}
@@ -754,5 +695,32 @@ fn expect_token<'input, const FRAGMENT_BUFFER_SIZE: usize>(
             expected,
             found: token,
         })
+    }
+}
+
+fn expect_identifier<'input, const FRAGMENT_BUFFER_SIZE: usize>(
+    ctx: &mut Context<'input, FRAGMENT_BUFFER_SIZE>,
+) -> Result<Identifier<'input>, ParserError<'input>> {
+    let token = expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
+    if let Token::Identifier(identifier) = token {
+        Ok(identifier)
+    } else {
+        unreachable!()
+    }
+}
+
+fn expect_int<'input, const FRAGMENT_BUFFER_SIZE: usize>(
+    ctx: &mut Context<'input, FRAGMENT_BUFFER_SIZE>,
+) -> Result<Int, ParserError<'input>> {
+    let token = expect_token(ctx, "Int", |t| {
+        matches!(t, Token::Int(_) | Token::Bool { .. })
+    })?;
+    match token {
+        Token::Int(int) => Ok(int),
+        Token::Bool { position, value } => Ok(Int {
+            position,
+            value: if value { 1 } else { 0 },
+        }),
+        _ => unreachable!(),
     }
 }

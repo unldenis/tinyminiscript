@@ -385,53 +385,9 @@ impl<'input> Iterator for Lexer<'input> {
     }
 }
 
-fn parse_miniscript(script: &str) -> Result<(), LexerError> {
-    let lexer = Lexer::new(script);
-
-    // Just iterate through tokens to verify parsing works
-    for token_result in lexer {
-        let token = token_result?;
-        // Process token here if needed
-        match token {
-            Token::Eof(_) => break,
-            _ => continue,
-        }
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_parse_miniscript() {
-        let script = "and_v(v:pk(K),pk(A))";
-        let result = parse_miniscript(script);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_simple_identifier() {
-        let script = "pk(A)";
-        let result = parse_miniscript(script);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_with_numbers() {
-        let script = "thresh(2,pk(A),pk(B))";
-        let result = parse_miniscript(script);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_with_colon() {
-        let script = "c:pk(A)";
-        let result = parse_miniscript(script);
-        assert!(result.is_ok());
-    }
 
     #[test]
     fn test_token_iteration() {
