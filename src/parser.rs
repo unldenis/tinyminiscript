@@ -226,11 +226,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> Context<'input, NODE_BUFFER_SIZE> {
     ) -> Result<usize, MiniscriptError<'input, ParserError<'input>>> {
         let idx = self.node_idx;
         self.nodes.push(node).map_err(|it| {
-            MiniscriptError::new(
-                self.input,
-                it.position.clone(),
-                ParserError::NodeOverflow(it),
-            )
+            MiniscriptError::new(self.input, it.position, ParserError::NodeOverflow(it))
         })?;
 
         self.node_idx += 1;
@@ -282,7 +278,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 let miniscript_type = y.type_info.base_type.clone();
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::AndOr {
                         x: ctx.push_node(x)?,
                         y: ctx.push_node(y)?,
@@ -304,7 +300,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 let miniscript_type = y.type_info.base_type.clone();
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::AndV {
                         x: ctx.push_node(x)?,
                         y: ctx.push_node(y)?,
@@ -322,7 +318,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::AndB {
                         x: ctx.push_node(x)?,
                         y: ctx.push_node(y)?,
@@ -340,7 +336,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::AndN {
                         x: ctx.push_node(x)?,
                         y: ctx.push_node(y)?,
@@ -358,7 +354,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::OrB {
                         x: ctx.push_node(x)?,
                         z: ctx.push_node(z)?,
@@ -376,7 +372,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::OrC {
                         x: ctx.push_node(x)?,
                         z: ctx.push_node(z)?,
@@ -394,7 +390,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::OrD {
                         x: ctx.push_node(x)?,
                         z: ctx.push_node(z)?,
@@ -415,7 +411,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 let miniscript_type = x.type_info.base_type.clone();
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::OrI {
                         x: ctx.push_node(x)?,
                         z: ctx.push_node(z)?,
@@ -451,7 +447,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                         _ => {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                next_token.position().clone(),
+                                *next_token.position(),
                                 ParserError::UnexpectedToken {
                                     expected: "Comma or RightParen",
                                     found: next_token,
@@ -465,13 +461,13 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 if xs.is_empty() {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        identifier.position.clone(),
+                        identifier.position,
                         ParserError::ThreshNotEnoughFragments,
                     ));
                 }
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::Thresh { k, xs: xs },
                     MiniscriptType::B,
                 ));
@@ -493,7 +489,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 let x = parse_logical_fragment(ctx)?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::Identity {
                         identity_type,
                         x: ctx.push_node(x)?,
@@ -543,7 +539,7 @@ fn parse_multi_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                         _ => {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                next_token.position().clone(),
+                                *next_token.position(),
                                 ParserError::UnexpectedToken {
                                     expected: "Comma or RightParen",
                                     found: next_token,
@@ -557,13 +553,13 @@ fn parse_multi_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 if keys.is_empty() {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        identifier.position.clone(),
+                        identifier.position,
                         ParserError::MultiNotEnoughKeys,
                     ));
                 }
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::Multi { k, keys: keys },
                     MiniscriptType::B,
                 ));
@@ -597,7 +593,7 @@ fn parse_multi_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                         _ => {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                next_token.position().clone(),
+                                *next_token.position(),
                                 ParserError::UnexpectedToken {
                                     expected: "Comma or RightParen",
                                     found: next_token,
@@ -611,13 +607,13 @@ fn parse_multi_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 if keys.is_empty() {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        identifier.position.clone(),
+                        identifier.position,
                         ParserError::MultiNotEnoughKeys,
                     ));
                 }
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::MultiA { k, keys: keys },
                     MiniscriptType::B,
                 ));
@@ -643,7 +639,7 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::PkK { key },
                     MiniscriptType::K,
                 ));
@@ -656,7 +652,7 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::PkH { key },
                     MiniscriptType::K,
                 ));
@@ -669,7 +665,7 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::Pk { key },
                     MiniscriptType::K,
                 ));
@@ -682,7 +678,7 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::Pkh { key },
                     MiniscriptType::K,
                 ));
@@ -695,7 +691,7 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::Older { n },
                     MiniscriptType::B,
                 ));
@@ -708,7 +704,7 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::After { n },
                     MiniscriptType::B,
                 ));
@@ -721,7 +717,7 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::Sha256 { h },
                     MiniscriptType::B,
                 ));
@@ -734,7 +730,7 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::Hash256 { h },
                     MiniscriptType::B,
                 ));
@@ -747,7 +743,7 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::Ripemd160 { h },
                     MiniscriptType::B,
                 ));
@@ -760,7 +756,7 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
 
                 return Ok(Node::new(
-                    identifier.position.clone(),
+                    identifier.position,
                     Fragment::Hash160 { h },
                     MiniscriptType::B,
                 ));
@@ -786,7 +782,7 @@ fn parse_basic_fragment<'input, const NODE_BUFFER_SIZE: usize>(
         }
         invalid_token => Err(MiniscriptError::new(
             ctx.input,
-            invalid_token.position().clone(),
+            *invalid_token.position(),
             ParserError::UnexpectedToken {
                 expected: "Bool",
                 found: invalid_token,
@@ -825,7 +821,7 @@ fn expect_token<'input, const NODE_BUFFER_SIZE: usize>(
     } else {
         Err(MiniscriptError::new(
             ctx.input,
-            token.position().clone(),
+            *token.position(),
             ParserError::UnexpectedToken {
                 expected,
                 found: token,

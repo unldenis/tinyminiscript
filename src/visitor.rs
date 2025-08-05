@@ -81,7 +81,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if x_type != MiniscriptType::B {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        x_node.position.clone(),
+                        x_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "X must be a B type",
                         },
@@ -91,7 +91,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if y_type != z_type {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        z_node.position.clone(),
+                        z_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "Y and Z must be the same type",
                         },
@@ -104,7 +104,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        y_node.position.clone(),
+                        y_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "Y and Z must be a B type, V type, or K type",
                         },
@@ -124,7 +124,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if x_type != MiniscriptType::V {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        x_node.position.clone(),
+                        x_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "X must be a V type",
                         },
@@ -137,7 +137,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        y_node.position.clone(),
+                        y_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "Y must be a B type, V type, or K type",
                         },
@@ -157,7 +157,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if x_type != MiniscriptType::B {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        x_node.position.clone(),
+                        x_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "X must be a B type",
                         },
@@ -167,7 +167,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if y_type != MiniscriptType::W {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        y_node.position.clone(),
+                        y_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "Y must be a W type",
                         },
@@ -187,7 +187,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if x_type != MiniscriptType::B {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        x_node.position.clone(),
+                        x_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "X must be a B type",
                         },
@@ -197,7 +197,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if z_type != MiniscriptType::W {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        z_node.position.clone(),
+                        z_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "Z must be a W type",
                         },
@@ -217,7 +217,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if x_type != MiniscriptType::B {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        x_node.position.clone(),
+                        x_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "X must be a B type",
                         },
@@ -227,7 +227,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if z_type != MiniscriptType::V {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        z_node.position.clone(),
+                        z_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "Z must be a V type",
                         },
@@ -247,7 +247,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if x_type != MiniscriptType::B {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        x_node.position.clone(),
+                        x_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "X must be a B type",
                         },
@@ -257,7 +257,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if z_type != MiniscriptType::B {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        z_node.position.clone(),
+                        z_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "Z must be a B type",
                         },
@@ -280,7 +280,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        x_node.position.clone(),
+                        x_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "X must be a B type, K type, or V type",
                         },
@@ -293,7 +293,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        z_node.position.clone(),
+                        z_node.position,
                         CorrectnessPropertiesVisitorError::UnexpectedType {
                             reason: "Z must be a B type, K type, or V type",
                         },
@@ -308,7 +308,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if k.value < 1 || k.value > xs.len() as u32 {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        node.position.clone(),
+                        node.position,
                         CorrectnessPropertiesVisitorError::InvalidThreshold {
                             k: k.value,
                             n: xs.len() as u32,
@@ -326,7 +326,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                         if node_type != MiniscriptType::B {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                node.position.clone(),
+                                node.position,
                                 CorrectnessPropertiesVisitorError::UnexpectedType {
                                     reason: "The first node must be a B type",
                                 },
@@ -336,7 +336,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                         if node_type != MiniscriptType::W {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                node.position.clone(),
+                                node.position,
                                 CorrectnessPropertiesVisitorError::UnexpectedType {
                                     reason: "All nodes must be W types",
                                 },
@@ -351,7 +351,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if k.value < 1 || k.value > keys.len() as u32 {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        node.position.clone(),
+                        node.position,
                         CorrectnessPropertiesVisitorError::InvalidThreshold {
                             k: k.value,
                             n: keys.len() as u32,
@@ -366,7 +366,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                 if k.value < 1 || k.value > keys.len() as u32 {
                     return Err(MiniscriptError::new(
                         ctx.input,
-                        node.position.clone(),
+                        node.position,
                         CorrectnessPropertiesVisitorError::InvalidThreshold {
                             k: k.value,
                             n: keys.len() as u32,
@@ -387,7 +387,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                         if x_type != MiniscriptType::B {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                x_node.position.clone(),
+                                x_node.position,
                                 CorrectnessPropertiesVisitorError::UnexpectedType {
                                     reason: "X must be a B type",
                                 },
@@ -405,7 +405,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                         if x_type != MiniscriptType::B {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                x_node.position.clone(),
+                                x_node.position,
                                 CorrectnessPropertiesVisitorError::UnexpectedType {
                                     reason: "X must be a B type",
                                 },
@@ -423,7 +423,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                         if x_type != MiniscriptType::K {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                x_node.position.clone(),
+                                x_node.position,
                                 CorrectnessPropertiesVisitorError::UnexpectedType {
                                     reason: "X must be a K type",
                                 },
@@ -441,7 +441,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                         if x_type != MiniscriptType::V {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                x_node.position.clone(),
+                                x_node.position,
                                 CorrectnessPropertiesVisitorError::UnexpectedType {
                                     reason: "X must be a V type",
                                 },
@@ -459,7 +459,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                         if x_type != MiniscriptType::B {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                x_node.position.clone(),
+                                x_node.position,
                                 CorrectnessPropertiesVisitorError::UnexpectedType {
                                     reason: "X must be a B type",
                                 },
@@ -477,7 +477,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                         if x_type != MiniscriptType::B {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                x_node.position.clone(),
+                                x_node.position,
                                 CorrectnessPropertiesVisitorError::UnexpectedType {
                                     reason: "X must be a B type",
                                 },
@@ -494,7 +494,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
                         if x_type != MiniscriptType::B {
                             return Err(MiniscriptError::new(
                                 ctx.input,
-                                x_node.position.clone(),
+                                x_node.position,
                                 CorrectnessPropertiesVisitorError::UnexpectedType {
                                     reason: "X must be a B type",
                                 },

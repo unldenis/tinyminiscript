@@ -5,7 +5,7 @@ use core::{
 
 use crate::error::MiniscriptError;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Copy, Default)]
 pub struct Position {
     pub line: usize,
     pub column: usize,
