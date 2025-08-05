@@ -3,10 +3,18 @@ use core::{
     str::Utf8Error,
 };
 
-#[derive(Debug, Clone)]
+use crate::error::MiniscriptError;
+
+#[derive(Clone, Default)]
 pub struct Position {
     pub line: usize,
     pub column: usize,
+}
+
+impl Debug for Position {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
 }
 
 impl Position {
@@ -25,7 +33,6 @@ impl ToUtf8 for [u8] {
     }
 }
 
-#[derive(Debug)]
 pub enum Token<'input> {
     Bool {
         position: Position,
@@ -48,16 +55,43 @@ pub enum Token<'input> {
     Eof(Position),
 }
 
-#[derive(Debug)]
+impl<'input> Debug for Token<'input> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Token::Bool { value, .. } => write!(f, "Bool({})", value),
+            Token::Identifier(id) => write!(f, "{:?}", id),
+            Token::Int(int) => write!(f, "{:?}", int),
+            Token::LeftParen(_) => write!(f, "LeftParen"),
+            Token::RightParen(_) => write!(f, "RightParen"),
+            Token::Eq(_) => write!(f, "Eq"),
+            Token::Comma(_) => write!(f, "Comma"),
+            Token::Colon(_) => write!(f, "Colon"),
+            Token::Checksum { value, .. } => write!(f, "Checksum({:?})", value),
+            Token::Eof(_) => write!(f, "Eof"),
+        }
+    }
+}
+
 pub struct Int {
     pub position: Position,
     pub value: u32,
 }
 
-#[derive(Debug)]
+impl Debug for Int {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Int({})", self.value)
+    }
+}
+
 pub struct Identifier<'input> {
     pub position: Position,
     pub value: &'input str,
+}
+
+impl<'input> Debug for Identifier<'input> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Identifier({:?})", self.value)
+    }
 }
 
 impl<'input> Token<'input> {
@@ -94,22 +128,26 @@ impl<'input> Display for Token<'input> {
     }
 }
 
-#[derive(Debug)]
 pub enum LexerError {
-    InvalidNumber {
-        position: Position,
-    },
-    UnknownCharacter {
-        position: Position,
-        character: char,
-    },
-    Utf8Error {
-        position: Position,
-        error: Utf8Error,
-    },
+    InvalidNumber,
+    UnknownCharacter { character: char },
+    Utf8Error { error: Utf8Error },
+}
+
+impl Debug for LexerError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            LexerError::InvalidNumber => write!(f, "Invalid number"),
+            LexerError::UnknownCharacter { character } => {
+                write!(f, "Unknown character: {}", character)
+            }
+            LexerError::Utf8Error { error } => write!(f, "UTF-8 error: {}", error),
+        }
+    }
 }
 
 pub struct Lexer<'input> {
+    pub(crate) _input: &'input str,
     input: &'input [u8],
     position: usize,
     line: usize,
@@ -119,6 +157,7 @@ pub struct Lexer<'input> {
 impl<'input> Lexer<'input> {
     pub fn new(input: &'input str) -> Self {
         Lexer {
+            _input: input,
             input: input.as_bytes(),
             position: 0,
             line: 1,
@@ -157,7 +196,7 @@ impl<'input> Lexer<'input> {
         }
     }
 
-    fn read_identifier(&mut self) -> Result<&'input str, LexerError> {
+    fn read_identifier(&mut self) -> Result<&'input str, MiniscriptError<'input, LexerError>> {
         let start = self.position;
         while let Some(b) = self.peek() {
             if b.is_ascii_alphanumeric()
@@ -173,15 +212,16 @@ impl<'input> Lexer<'input> {
                 break;
             }
         }
-        self.input[start..self.position]
-            .to_utf8()
-            .map_err(|e| LexerError::Utf8Error {
-                position: self.get_position(),
-                error: e,
-            })
+        self.input[start..self.position].to_utf8().map_err(|e| {
+            MiniscriptError::new(
+                self._input,
+                self.get_position(),
+                LexerError::Utf8Error { error: e },
+            )
+        })
     }
 
-    fn read_number(&mut self) -> Result<Option<u32>, LexerError> {
+    fn read_number(&mut self) -> Result<Option<u32>, MiniscriptError<'input, LexerError>> {
         let start = self.position;
         let mut has_digits = false;
 
@@ -195,20 +235,20 @@ impl<'input> Lexer<'input> {
         }
 
         if has_digits {
-            let num_str =
-                self.input[start..self.position]
-                    .to_utf8()
-                    .map_err(|e| LexerError::Utf8Error {
-                        position: self.get_position(),
-                        error: e,
-                    })?;
+            let num_str = self.input[start..self.position].to_utf8().map_err(|e| {
+                MiniscriptError::new(
+                    self._input,
+                    self.get_position(),
+                    LexerError::Utf8Error { error: e },
+                )
+            })?;
             Ok(num_str.parse::<u32>().ok())
         } else {
             Ok(None)
         }
     }
 
-    fn read_checksum(&mut self) -> Result<&'input str, LexerError> {
+    fn read_checksum(&mut self) -> Result<&'input str, MiniscriptError<'input, LexerError>> {
         // Skip the '#' character
         self.advance();
 
@@ -223,19 +263,20 @@ impl<'input> Lexer<'input> {
             }
         }
 
-        self.input[start..self.position]
-            .to_utf8()
-            .map_err(|e| LexerError::Utf8Error {
-                position: self.get_position(),
-                error: e,
-            })
+        self.input[start..self.position].to_utf8().map_err(|e| {
+            MiniscriptError::new(
+                self._input,
+                self.get_position(),
+                LexerError::Utf8Error { error: e },
+            )
+        })
     }
 
     fn get_position(&self) -> Position {
         Position::new(self.line, self.column)
     }
 
-    pub fn next_token(&mut self) -> Result<Token<'input>, LexerError> {
+    pub fn next_token(&mut self) -> Result<Token<'input>, MiniscriptError<'input, LexerError>> {
         self.skip_whitespace();
 
         match self.peek() {
@@ -286,7 +327,11 @@ impl<'input> Lexer<'input> {
                                 position: pos,
                                 value: num,
                             })),
-                            None => Err(LexerError::InvalidNumber { position: pos }),
+                            None => Err(MiniscriptError::new(
+                                self._input,
+                                pos,
+                                LexerError::InvalidNumber,
+                            )),
                         }
                     } else {
                         // Standalone '0', treat as boolean false
@@ -316,7 +361,11 @@ impl<'input> Lexer<'input> {
                                 position: pos,
                                 value: num,
                             })),
-                            None => Err(LexerError::InvalidNumber { position: pos }),
+                            None => Err(MiniscriptError::new(
+                                self._input,
+                                pos,
+                                LexerError::InvalidNumber,
+                            )),
                         }
                     } else {
                         // Standalone '1', treat as boolean true
@@ -341,7 +390,11 @@ impl<'input> Lexer<'input> {
                         position: pos,
                         value: num,
                     })),
-                    None => Err(LexerError::InvalidNumber { position: pos }),
+                    None => Err(MiniscriptError::new(
+                        self._input,
+                        pos,
+                        LexerError::InvalidNumber,
+                    )),
                 }
             }
             Some(b)
@@ -363,17 +416,20 @@ impl<'input> Lexer<'input> {
             Some(b) => {
                 let pos = self.get_position();
                 self.advance(); // Skip unknown character
-                Err(LexerError::UnknownCharacter {
-                    position: pos,
-                    character: char::from(b),
-                })
+                Err(MiniscriptError::new(
+                    self._input,
+                    pos,
+                    LexerError::UnknownCharacter {
+                        character: char::from(b),
+                    },
+                ))
             }
         }
     }
 }
 
 impl<'input> Iterator for Lexer<'input> {
-    type Item = Result<Token<'input>, LexerError>;
+    type Item = Result<Token<'input>, MiniscriptError<'input, LexerError>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let token_result = self.next_token();
@@ -433,7 +489,13 @@ mod tests {
         assert!(result.is_ok()); // "A" should parse fine
 
         let result = lexer.next_token();
-        assert!(matches!(result, Err(LexerError::UnknownCharacter { .. }))); // "@" should error
+        assert!(matches!(
+            result,
+            Err(MiniscriptError {
+                inner: LexerError::UnknownCharacter { .. },
+                ..
+            })
+        )); // "@" should error
     }
 
     #[test]

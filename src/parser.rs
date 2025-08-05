@@ -3,6 +3,7 @@ use core::fmt::Debug;
 use heapless::Vec;
 
 use crate::{
+    error::MiniscriptError,
     lexer::{Identifier, Int, Lexer, LexerError, Position, Token},
     visitor::NodeVisitor,
 };
@@ -167,18 +168,33 @@ impl From<&str> for IdentityType {
 //
 // ParserError
 //
-
-#[derive(Debug)]
 pub enum ParserError<'input> {
     LexerError(LexerError),
-    UnexpectedEof(Position),
+    UnexpectedEof,
     UnexpectedToken {
         expected: &'static str,
         found: Token<'input>,
     },
     NodeOverflow(Node<'input>),
-    ThreshNotEnoughFragments(Position),
-    MultiNotEnoughKeys(Position),
+    ThreshNotEnoughFragments,
+    MultiNotEnoughKeys,
+}
+
+impl<'input> Debug for ParserError<'input> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ParserError::LexerError(error) => write!(f, "LexerError: {:?}", error),
+            ParserError::UnexpectedEof => write!(f, "UnexpectedEof"),
+            ParserError::UnexpectedToken { expected, found } => write!(
+                f,
+                "UnexpectedToken: expected {:?}, found {:?}",
+                expected, found
+            ),
+            ParserError::NodeOverflow(node) => write!(f, "NodeOverflow: {:?}", node),
+            ParserError::ThreshNotEnoughFragments => write!(f, "ThreshNotEnoughFragments"),
+            ParserError::MultiNotEnoughKeys => write!(f, "MultiNotEnoughKeys"),
+        }
+    }
 }
 
 //
@@ -186,33 +202,43 @@ pub enum ParserError<'input> {
 //
 
 pub struct Context<'input, const NODE_BUFFER_SIZE: usize = 256> {
-    lexer: &'input mut Lexer<'input>,
+    pub(crate) input: &'input str,
+
+    lexer: Lexer<'input>,
 
     nodes: Vec<Node<'input>, NODE_BUFFER_SIZE>,
     node_idx: usize,
 }
 
 impl<'input, const NODE_BUFFER_SIZE: usize> Context<'input, NODE_BUFFER_SIZE> {
-    pub fn new(lexer: &'input mut Lexer<'input>) -> Self {
+    pub fn new(input: &'input str) -> Self {
         Self {
-            lexer,
+            input,
+            lexer: Lexer::new(input),
             nodes: Vec::new(),
             node_idx: 0,
         }
     }
 
-    pub fn push_node(&mut self, node: Node<'input>) -> Result<usize, ParserError<'input>> {
+    pub fn push_node(
+        &mut self,
+        node: Node<'input>,
+    ) -> Result<usize, MiniscriptError<'input, ParserError<'input>>> {
         let idx = self.node_idx;
-        self.nodes
-            .push(node)
-            .map_err(|it| ParserError::NodeOverflow(it))?;
+        self.nodes.push(node).map_err(|it| {
+            MiniscriptError::new(
+                self.input,
+                it.position.clone(),
+                ParserError::NodeOverflow(it),
+            )
+        })?;
 
         self.node_idx += 1;
         Ok(idx)
     }
 
-    pub(crate) fn get_node(&self, idx: usize) -> Option<&Node<'input>> {
-        self.nodes.get(idx)
+    pub(crate) fn get_node(&self, idx: usize) -> &Node<'input> {
+        self.nodes.get(idx).unwrap()
     }
 
     pub fn visit_node<V: NodeVisitor<'input, NODE_BUFFER_SIZE>>(
@@ -230,13 +256,13 @@ impl<'input, const NODE_BUFFER_SIZE: usize> Context<'input, NODE_BUFFER_SIZE> {
 
 pub fn parse<'input, const NODE_BUFFER_SIZE: usize>(
     ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Node<'input>, ParserError<'input>> {
+) -> Result<Node<'input>, MiniscriptError<'input, ParserError<'input>>> {
     parse_logical_fragment(ctx)
 }
 
 fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
     ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Node<'input>, ParserError<'input>> {
+) -> Result<Node<'input>, MiniscriptError<'input, ParserError<'input>>> {
     let next_token = parse_next_token(ctx)?;
     match &next_token {
         Token::Identifier(identifier) => match identifier.value {
@@ -423,18 +449,24 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                             continue;
                         }
                         _ => {
-                            return Err(ParserError::UnexpectedToken {
-                                expected: "Comma or RightParen",
-                                found: next_token,
-                            });
+                            return Err(MiniscriptError::new(
+                                ctx.input,
+                                next_token.position().clone(),
+                                ParserError::UnexpectedToken {
+                                    expected: "Comma or RightParen",
+                                    found: next_token,
+                                },
+                            ));
                         }
                     }
                 }
 
                 // Validate that we have at least one fragment
                 if xs.is_empty() {
-                    return Err(ParserError::ThreshNotEnoughFragments(
+                    return Err(MiniscriptError::new(
+                        ctx.input,
                         identifier.position.clone(),
+                        ParserError::ThreshNotEnoughFragments,
                     ));
                 }
 
@@ -479,7 +511,7 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
 fn parse_multi_fragment<'input, const NODE_BUFFER_SIZE: usize>(
     next_token: Token<'input>,
     ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Node<'input>, ParserError<'input>> {
+) -> Result<Node<'input>, MiniscriptError<'input, ParserError<'input>>> {
     match &next_token {
         Token::Identifier(identifier) => match identifier.value {
             "multi" => {
@@ -509,17 +541,25 @@ fn parse_multi_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                             keys.push(key).unwrap();
                         }
                         _ => {
-                            return Err(ParserError::UnexpectedToken {
-                                expected: "Comma or RightParen",
-                                found: next_token,
-                            });
+                            return Err(MiniscriptError::new(
+                                ctx.input,
+                                next_token.position().clone(),
+                                ParserError::UnexpectedToken {
+                                    expected: "Comma or RightParen",
+                                    found: next_token,
+                                },
+                            ));
                         }
                     }
                 }
 
                 // Validate that we have at least one key
                 if keys.is_empty() {
-                    return Err(ParserError::MultiNotEnoughKeys(identifier.position.clone()));
+                    return Err(MiniscriptError::new(
+                        ctx.input,
+                        identifier.position.clone(),
+                        ParserError::MultiNotEnoughKeys,
+                    ));
                 }
 
                 return Ok(Node::new(
@@ -555,17 +595,25 @@ fn parse_multi_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                             keys.push(key).unwrap();
                         }
                         _ => {
-                            return Err(ParserError::UnexpectedToken {
-                                expected: "Comma or RightParen",
-                                found: next_token,
-                            });
+                            return Err(MiniscriptError::new(
+                                ctx.input,
+                                next_token.position().clone(),
+                                ParserError::UnexpectedToken {
+                                    expected: "Comma or RightParen",
+                                    found: next_token,
+                                },
+                            ));
                         }
                     }
                 }
 
                 // Validate that we have at least one key
                 if keys.is_empty() {
-                    return Err(ParserError::MultiNotEnoughKeys(identifier.position.clone()));
+                    return Err(MiniscriptError::new(
+                        ctx.input,
+                        identifier.position.clone(),
+                        ParserError::MultiNotEnoughKeys,
+                    ));
                 }
 
                 return Ok(Node::new(
@@ -584,7 +632,7 @@ fn parse_multi_fragment<'input, const NODE_BUFFER_SIZE: usize>(
 fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
     next_token: Token<'input>,
     ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Node<'input>, ParserError<'input>> {
+) -> Result<Node<'input>, MiniscriptError<'input, ParserError<'input>>> {
     match &next_token {
         Token::Identifier(identifier) => match identifier.value {
             "pk_k" => {
@@ -721,12 +769,13 @@ fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
         },
         _ => {}
     }
-    parse_basic_fragment::<NODE_BUFFER_SIZE>(next_token)
+    parse_basic_fragment(next_token, ctx)
 }
 
 fn parse_basic_fragment<'input, const NODE_BUFFER_SIZE: usize>(
     next_token: Token<'input>,
-) -> Result<Node<'input>, ParserError<'input>> {
+    ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
+) -> Result<Node<'input>, MiniscriptError<'input, ParserError<'input>>> {
     match next_token {
         Token::Bool { position, value } => {
             if value {
@@ -735,21 +784,33 @@ fn parse_basic_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                 Ok(Node::new(position, Fragment::False, MiniscriptType::B))
             }
         }
-        invalid_token => Err(ParserError::UnexpectedToken {
-            expected: "Bool",
-            found: invalid_token,
-        }),
+        invalid_token => Err(MiniscriptError::new(
+            ctx.input,
+            invalid_token.position().clone(),
+            ParserError::UnexpectedToken {
+                expected: "Bool",
+                found: invalid_token,
+            },
+        )),
     }
 }
 
 fn parse_next_token<'input, const NODE_BUFFER_SIZE: usize>(
     ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Token<'input>, ParserError<'input>> {
+) -> Result<Token<'input>, MiniscriptError<'input, ParserError<'input>>> {
     let token_result = ctx.lexer.next_token();
     match token_result {
-        Ok(Token::Eof(position)) => Err(ParserError::UnexpectedEof(position)),
+        Ok(Token::Eof(position)) => Err(MiniscriptError::new(
+            ctx.input,
+            position,
+            ParserError::UnexpectedEof,
+        )),
         Ok(token) => Ok(token),
-        Err(error) => Err(ParserError::LexerError(error))?,
+        Err(error) => Err(MiniscriptError::new(
+            ctx.input,
+            error.position,
+            ParserError::LexerError(error.inner),
+        )),
     }
 }
 
@@ -757,21 +818,25 @@ fn expect_token<'input, const NODE_BUFFER_SIZE: usize>(
     ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
     expected: &'static str,
     token_matcher: impl Fn(&Token<'input>) -> bool,
-) -> Result<Token<'input>, ParserError<'input>> {
+) -> Result<Token<'input>, MiniscriptError<'input, ParserError<'input>>> {
     let token = parse_next_token(ctx)?;
     if token_matcher(&token) {
         Ok(token)
     } else {
-        Err(ParserError::UnexpectedToken {
-            expected,
-            found: token,
-        })
+        Err(MiniscriptError::new(
+            ctx.input,
+            token.position().clone(),
+            ParserError::UnexpectedToken {
+                expected,
+                found: token,
+            },
+        ))
     }
 }
 
 fn expect_identifier<'input, const NODE_BUFFER_SIZE: usize>(
     ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Identifier<'input>, ParserError<'input>> {
+) -> Result<Identifier<'input>, MiniscriptError<'input, ParserError<'input>>> {
     let token = expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
     if let Token::Identifier(identifier) = token {
         Ok(identifier)
@@ -782,7 +847,7 @@ fn expect_identifier<'input, const NODE_BUFFER_SIZE: usize>(
 
 fn expect_int<'input, const NODE_BUFFER_SIZE: usize>(
     ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Int, ParserError<'input>> {
+) -> Result<Int, MiniscriptError<'input, ParserError<'input>>> {
     let token = expect_token(ctx, "Int", |t| {
         matches!(t, Token::Int(_) | Token::Bool { .. })
     })?;

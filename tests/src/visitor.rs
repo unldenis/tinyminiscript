@@ -1,6 +1,6 @@
 use f_miniscript::{
     parser::{Context, Fragment, Node},
-    visitor::{NodeVisitor, VisitorError},
+    visitor::{CorrectnessPropertiesVisitorError, NodeVisitor},
 };
 
 pub struct StringBufferVisitor {
@@ -44,17 +44,7 @@ impl StringBufferVisitor {
 }
 
 #[derive(Debug)]
-pub enum StringBufferVisitorError {
-    NodeNotFound(usize),
-}
-
-impl From<VisitorError> for StringBufferVisitorError {
-    fn from(error: VisitorError) -> Self {
-        match error {
-            VisitorError::NodeNotFound(idx) => StringBufferVisitorError::NodeNotFound(idx),
-        }
-    }
-}
+pub enum StringBufferVisitorError {}
 
 impl<'input> NodeVisitor<'input, 256, ()> for StringBufferVisitor {
     type Error = StringBufferVisitorError;
