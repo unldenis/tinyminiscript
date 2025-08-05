@@ -131,6 +131,37 @@ pub enum Fragment<'input> {
         k: Int,
         keys: Vec<Identifier<'input>, 16>,
     },
+
+    Identity {
+        identity_type: IdentityType,
+        x: usize,
+    },
+}
+
+#[derive(Debug)]
+pub enum IdentityType {
+    A,
+    S,
+    C,
+    D,
+    V,
+    J,
+    N,
+}
+
+impl From<&str> for IdentityType {
+    fn from(s: &str) -> Self {
+        match s {
+            "a" => IdentityType::A,
+            "s" => IdentityType::S,
+            "c" => IdentityType::C,
+            "d" => IdentityType::D,
+            "v" => IdentityType::V,
+            "j" => IdentityType::J,
+            "n" => IdentityType::N,
+            _ => panic!("Invalid identity type: {}", s),
+        }
+    }
 }
 
 //
@@ -411,6 +442,31 @@ fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
                     identifier.position.clone(),
                     Fragment::Thresh { k, xs: xs },
                     MiniscriptType::B,
+                ));
+            }
+            "a" | "s" | "c" | "d" | "v" | "j" | "n" => {
+                let identity_type = IdentityType::from(identifier.value);
+
+                let identity_result = match identity_type {
+                    IdentityType::A => MiniscriptType::W,
+                    IdentityType::S => MiniscriptType::W,
+                    IdentityType::C => MiniscriptType::B,
+                    IdentityType::D => MiniscriptType::B,
+                    IdentityType::V => MiniscriptType::V,
+                    IdentityType::J => MiniscriptType::B,
+                    IdentityType::N => MiniscriptType::B,
+                };
+                expect_token(ctx, "Colon", |t| matches!(t, Token::Colon(_)))?;
+
+                let x = parse_logical_fragment(ctx)?;
+
+                return Ok(Node::new(
+                    identifier.position.clone(),
+                    Fragment::Identity {
+                        identity_type,
+                        x: ctx.push_node(x)?,
+                    },
+                    identity_result,
                 ));
             }
             _ => {}

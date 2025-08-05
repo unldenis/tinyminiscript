@@ -1,6 +1,6 @@
 use crate::{
     lexer::Position,
-    parser::{Context, Fragment, MiniscriptType, Node},
+    parser::{Context, Fragment, IdentityType, MiniscriptType, Node},
 };
 
 //
@@ -360,6 +360,130 @@ impl<'input, const NODE_BUFFER_SIZE: usize> NodeVisitor<'input, NODE_BUFFER_SIZE
 
                 Ok(())
             }
+            Fragment::Identity { identity_type, x } => {
+                match identity_type {
+                    IdentityType::A => {
+                        // X is B
+                        let x_node = ctx
+                            .get_node(*x)
+                            .ok_or(CorrectnessPropertiesVisitorError::NodeNotFound(*x))?;
+
+                        let x_type = x_node.type_info.base_type().clone();
+
+                        if x_type != MiniscriptType::B {
+                            return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
+                                position: x_node.position.clone(),
+                                reason: "X must be a B type",
+                            });
+                        }
+
+                        Ok(())
+                    }
+                    IdentityType::S => {
+                        // X is Bo
+                        let x_node = ctx
+                            .get_node(*x)
+                            .ok_or(CorrectnessPropertiesVisitorError::NodeNotFound(*x))?;
+
+                        let x_type = x_node.type_info.base_type().clone();
+
+                        if x_type != MiniscriptType::B {
+                            return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
+                                position: x_node.position.clone(),
+                                reason: "X must be a B type",
+                            });
+                        }
+
+                        Ok(())
+                    }
+                    IdentityType::C => {
+                        // X is K
+                        let x_node = ctx
+                            .get_node(*x)
+                            .ok_or(CorrectnessPropertiesVisitorError::NodeNotFound(*x))?;
+
+                        let x_type = x_node.type_info.base_type().clone();
+
+                        if x_type != MiniscriptType::K {
+                            return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
+                                position: x_node.position.clone(),
+                                reason: "X must be a K type",
+                            });
+                        }
+
+                        Ok(())
+                    }
+                    IdentityType::D => {
+                        // X is Vz
+                        let x_node = ctx
+                            .get_node(*x)
+                            .ok_or(CorrectnessPropertiesVisitorError::NodeNotFound(*x))?;
+
+                        let x_type = x_node.type_info.base_type().clone();
+
+                        if x_type != MiniscriptType::V {
+                            return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
+                                position: x_node.position.clone(),
+                                reason: "X must be a V type",
+                            });
+                        }
+
+                        Ok(())
+                    }
+                    IdentityType::V => {
+                        // X is B
+                        let x_node = ctx
+                            .get_node(*x)
+                            .ok_or(CorrectnessPropertiesVisitorError::NodeNotFound(*x))?;
+
+                        let x_type = x_node.type_info.base_type().clone();
+
+                        if x_type != MiniscriptType::B {
+                            return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
+                                position: x_node.position.clone(),
+                                reason: "X must be a B type",
+                            });
+                        }
+
+                        Ok(())
+                    }
+                    IdentityType::J => {
+                        // X is Bn
+                        let x_node = ctx
+                            .get_node(*x)
+                            .ok_or(CorrectnessPropertiesVisitorError::NodeNotFound(*x))?;
+
+                        let x_type = x_node.type_info.base_type().clone();
+
+                        if x_type != MiniscriptType::B {
+                            return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
+                                position: x_node.position.clone(),
+                                reason: "X must be a B type",
+                            });
+                        }
+
+                        Ok(())
+                    }
+                    IdentityType::N => {
+                        // X is B
+                        let x_node = ctx
+                            .get_node(*x)
+                            .ok_or(CorrectnessPropertiesVisitorError::NodeNotFound(*x))?;
+
+                        let x_type = x_node.type_info.base_type().clone();
+
+                        if x_type != MiniscriptType::B {
+                            return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
+                                position: x_node.position.clone(),
+                                reason: "X must be a B type",
+                            });
+                        }
+
+                        Ok(())
+                    }
+                }
+            }
+
             Fragment::False => Ok(()),
             Fragment::True => Ok(()),
             Fragment::PkK { key } => Ok(()),

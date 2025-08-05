@@ -206,6 +206,14 @@ impl<'input> NodeVisitor<'input, 256, ()> for StringBufferVisitor {
                 self.write_line(&format!("MultiA(k={:?}, keys={:?})", k, keys));
                 Ok(())
             }
+            Fragment::Identity { identity_type, x } => {
+                self.write_line(&format!("Identity-{:?}(", identity_type));
+                self.indent();
+                let x = self.visit_node_by_idx(*x, ctx)?;
+                self.dedent();
+                self.write_line(")");
+                Ok(())
+            }
         }
     }
 }
