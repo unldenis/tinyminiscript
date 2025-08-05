@@ -180,7 +180,7 @@ impl<'input, const NODE_BUFFER_SIZE: usize> Context<'input, NODE_BUFFER_SIZE> {
         Ok(idx)
     }
 
-    pub fn get_node(&self, idx: usize) -> Option<&Node<'input>> {
+    pub(crate) fn get_node(&self, idx: usize) -> Option<&Node<'input>> {
         self.nodes.get(idx)
     }
 
