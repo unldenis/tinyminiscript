@@ -3,13 +3,12 @@ mod visitor;
 use f_miniscript::{
     lexer::Lexer,
     parser::{self, Context},
+    visitor::CorrectnessPropertiesVisitor,
 };
 
 use crate::visitor::StringBufferVisitor;
 
 fn main() {
-    // let script = "and_v(v:pk(K),pk(A))";
-
     let scripts = vec![
         "0",
         "1",
@@ -40,6 +39,7 @@ fn main() {
         "thresh(2,pk(K),and_v(pk(A),pk(B)),pk(C))",
         "multi(2,K,A,B)",
         "multi_a(2,K,A,B)",
+        "and_v(v:pk(K),pk(A))",
     ];
 
     for script in scripts {
@@ -54,8 +54,26 @@ fn main() {
                 // Example: Using the string buffer visitor to get a formatted tree
                 println!("\nString representation:");
                 let mut string_visitor = StringBufferVisitor::new();
-                ctx.visit_node(&fragment, &mut string_visitor);
-                println!("{}", string_visitor.get_result());
+                let result = ctx.visit_node(&fragment, &mut string_visitor);
+                match result {
+                    Ok(_) => {
+                        println!("{}", string_visitor.get_result());
+                    }
+                    Err(err) => {
+                        println!("Error: {:?}", err);
+                    }
+                }
+
+                let mut correctness_visitor = CorrectnessPropertiesVisitor::new();
+                let result = ctx.visit_node(&fragment, &mut correctness_visitor);
+                match result {
+                    Ok(_) => {
+                        println!("Correctness properties: {:?}", result);
+                    }
+                    Err(err) => {
+                        println!("Error: {:?}", err);
+                    }
+                }
             }
             Err(err) => {
                 println!("Error: {:?}", err);

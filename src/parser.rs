@@ -11,7 +11,7 @@ use crate::{
 /// Miniscript basic expression types
 ///
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MiniscriptType {
     B, // Base
     V, // Verify
@@ -188,8 +188,8 @@ impl<'input, const NODE_BUFFER_SIZE: usize> Context<'input, NODE_BUFFER_SIZE> {
         &self,
         node: &Node<'input>,
         visitor: &mut V,
-    ) {
-        visitor.visit_node(node, self);
+    ) -> Result<(), V::Error> {
+        visitor.visit_node(node, self)
     }
 }
 
