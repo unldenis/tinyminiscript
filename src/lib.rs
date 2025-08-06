@@ -4,6 +4,7 @@
 #[macro_use]
 mod macros;
 pub mod parser;
+pub mod translator;
 pub mod type_checker;
 
 pub extern crate alloc;
