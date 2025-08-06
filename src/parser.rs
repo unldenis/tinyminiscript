@@ -1,72 +1,38 @@
+use alloc::format;
+use alloc::string::String;
+use alloc::{boxed::Box, string::ToString, vec::Vec};
 use core::fmt::Debug;
 
-use heapless::Vec;
+// AST Visitor
 
-use crate::{
-    error::MiniscriptError,
-    lexer::{Identifier, Int, Lexer, LexerError, Position, Token},
-    visitor::NodeVisitor,
-};
+pub trait ASTVisitor<T> {
+    type Error;
 
-///
-/// Miniscript basic expression types
-///
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MiniscriptType {
-    B, // Base
-    V, // Verify
-    K, // Key
-    W, // Wrapped
+    fn visit_ast(&mut self, ctx: &Context, node: &AST) -> Result<T, Self::Error>;
 }
 
-#[derive(Debug)]
-pub struct TypeInfo {
-    base_type: MiniscriptType,
-    // pub properties: TypeProperties,
+// Models
+
+#[derive(Clone, Copy, Debug)]
+pub struct Position {
+    pub column: usize,
 }
-
-impl TypeInfo {
-    pub fn new(base_type: MiniscriptType) -> Self {
-        Self { base_type }
-    }
-
-    pub fn base_type(&self) -> &MiniscriptType {
-        &self.base_type
+impl Position {
+    pub fn new(column: usize) -> Self {
+        Self { column }
     }
 }
 
-//
-// AST Wrapper Nodes with position and type info
-//
+// AST
 
 #[derive(Debug)]
-pub struct Node<'input> {
+pub struct AST {
     pub position: Position,
-    pub fragment: Fragment<'input>,
-    pub type_info: TypeInfo,
+    pub fragment: Fragment,
 }
-
-impl<'input> Node<'input> {
-    pub fn new(
-        position: Position,
-        fragment: Fragment<'input>,
-        miniscript_type: MiniscriptType,
-    ) -> Self {
-        Self {
-            position,
-            fragment,
-            type_info: TypeInfo::new(miniscript_type),
-        }
-    }
-}
-
-///
-/// AST Fragments
-///
 
 #[derive(Debug)]
-pub enum Fragment<'input> {
+pub enum Fragment {
     // Basic Fragments
     /// 0
     False,
@@ -75,67 +41,67 @@ pub enum Fragment<'input> {
 
     // Key Fragments
     /// pk_k(key)
-    PkK { key: Identifier<'input> },
+    PkK { key: String },
     /// pk_h(key)
-    PkH { key: Identifier<'input> },
-    /// pk(key) = c:pk_k(key)
-    Pk { key: Identifier<'input> },
-    /// pkh(key) = c:pk_h(key)
-    Pkh { key: Identifier<'input> },
+    PkH { key: String },
+
+    // /// pk(key) = c:pk_k(key)
+    // Pk { key: String },
+    // /// pkh(key) = c:pk_h(key)
+    // Pkh { key: String },
 
     // Time fragments
     /// older(n)
-    Older { n: Int },
+    Older { n: i64 },
     /// after(n)
-    After { n: Int },
+    After { n: i64 },
 
     // Hash Fragments
     /// sha256(h)
-    Sha256 { h: Identifier<'input> },
+    Sha256 { h: String },
     /// hash256(h)
-    Hash256 { h: Identifier<'input> },
+    Hash256 { h: String },
     /// ripemd160(h)
-    Ripemd160 { h: Identifier<'input> },
+    Ripemd160 { h: String },
     /// hash160(h)
-    Hash160 { h: Identifier<'input> },
+    Hash160 { h: String },
 
     // Logical Fragments
     /// andor(X,Y,Z)
-    AndOr { x: usize, y: usize, z: usize },
+    AndOr {
+        x: Box<AST>,
+        y: Box<AST>,
+        z: Box<AST>,
+    },
     /// and_v(X,Y)
-    AndV { x: usize, y: usize },
+    AndV { x: Box<AST>, y: Box<AST> },
     /// and_b(X,Y)
-    AndB { x: usize, y: usize },
-    /// and_n(X,Y) = andor(X,Y,0)
-    AndN { x: usize, y: usize },
+    AndB { x: Box<AST>, y: Box<AST> },
+
+    // /// and_n(X,Y) = andor(X,Y,0)
+    // AndN { x: Box<AST>, y: Box<AST> },
     /// or_b(X,Z)
-    OrB { x: usize, z: usize },
+    OrB { x: Box<AST>, z: Box<AST> },
     /// or_c(X,Z)
-    OrC { x: usize, z: usize },
+    OrC { x: Box<AST>, z: Box<AST> },
     /// or_d(X,Z)
-    OrD { x: usize, z: usize },
+    OrD { x: Box<AST>, z: Box<AST> },
     /// or_i(X,Z)
-    OrI { x: usize, z: usize },
+    OrI { x: Box<AST>, z: Box<AST> },
 
     // Threshold Fragments
     /// thresh(k,X1,...,Xn)
-    Thresh { k: Int, xs: Vec<usize, 16> },
+    Thresh { k: i32, xs: Vec<Box<AST>> },
     ///  multi(k,key1,...,keyn)
     /// (P2WSH only)
-    Multi {
-        k: Int,
-        keys: Vec<Identifier<'input>, 16>,
-    },
+    Multi { k: i32, keys: Vec<String> },
     /// multi_a(k,key1,...,keyn)
     /// (Tapscript only)
-    MultiA {
-        k: Int,
-        keys: Vec<Identifier<'input>, 16>,
-    },
+    MultiA { k: i32, keys: Vec<String> },
 
     Identity {
         identity_type: IdentityType,
-        x: usize,
+        x: Box<AST>,
     },
 }
 
@@ -150,709 +116,641 @@ pub enum IdentityType {
     N,
 }
 
-impl From<&str> for IdentityType {
-    fn from(s: &str) -> Self {
-        match s {
-            "a" => IdentityType::A,
-            "s" => IdentityType::S,
-            "c" => IdentityType::C,
-            "d" => IdentityType::D,
-            "v" => IdentityType::V,
-            "j" => IdentityType::J,
-            "n" => IdentityType::N,
-            _ => panic!("Invalid identity type: {}", s),
+fn split_string_with_columns<F>(s: &str, is_separator: F) -> Vec<(String, usize)>
+where
+    F: Fn(char) -> bool,
+{
+    let mut result = Vec::new();
+    let mut char_indices = s.char_indices().peekable();
+    let mut start = 0;
+    let mut column = 1;
+
+    while let Some((i, c)) = char_indices.peek().copied() {
+        if is_separator(c) {
+            if start < i {
+                // Push the slice before the separator
+                let part = &s[start..i];
+                result.push((part.to_string(), column));
+                column += part.chars().count();
+            }
+
+            // Push the separator itself
+            result.push((c.to_string(), column));
+            column += 1;
+            char_indices.next();
+            start = i + c.len_utf8();
+        } else {
+            char_indices.next();
         }
     }
+
+    if start < s.len() {
+        let part = &s[start..];
+        result.push((part.to_string(), column));
+    }
+
+    result
 }
 
-//
-// ParserError
-//
-pub enum ParserError<'input> {
-    LexerError(LexerError),
-    UnexpectedEof,
-    UnexpectedToken {
-        expected: &'static str,
-        found: Token<'input>,
+#[derive(Debug)]
+pub enum ParseError {
+    UnexpectedEof {
+        context: &'static str,
     },
-    NodeOverflow(Node<'input>),
-    ThreshNotEnoughFragments,
-    MultiNotEnoughKeys,
+    UnexpectedToken {
+        expected: String,
+        found: (String, usize),
+    },
 }
 
-impl<'input> Debug for ParserError<'input> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            ParserError::LexerError(error) => write!(f, "LexerError: {:?}", error),
-            ParserError::UnexpectedEof => write!(f, "UnexpectedEof"),
-            ParserError::UnexpectedToken { expected, found } => write!(
-                f,
-                "UnexpectedToken: expected {:?}, found {:?}",
-                expected, found
-            ),
-            ParserError::NodeOverflow(node) => write!(f, "NodeOverflow: {:?}", node),
-            ParserError::ThreshNotEnoughFragments => write!(f, "ThreshNotEnoughFragments"),
-            ParserError::MultiNotEnoughKeys => write!(f, "MultiNotEnoughKeys"),
-        }
-    }
+pub struct Context {
+    tokens: Vec<(String, usize)>,
+    current_token: usize,
 }
 
-//
-// Context
-//
-
-pub struct Context<'input, const NODE_BUFFER_SIZE: usize = 256> {
-    pub(crate) input: &'input str,
-
-    lexer: Lexer<'input>,
-
-    nodes: Vec<Node<'input>, NODE_BUFFER_SIZE>,
-    node_idx: usize,
-}
-
-impl<'input, const NODE_BUFFER_SIZE: usize> Context<'input, NODE_BUFFER_SIZE> {
-    pub fn new(input: &'input str) -> Self {
+impl Context {
+    pub fn new(input: &str) -> Self {
+        let tokens =
+            split_string_with_columns(input, |c| c == '(' || c == ')' || c == ',' || c == ':');
         Self {
-            input,
-            lexer: Lexer::new(input),
-            nodes: Vec::new(),
-            node_idx: 0,
+            tokens,
+            current_token: 0,
         }
     }
 
-    pub fn push_node(
-        &mut self,
-        node: Node<'input>,
-    ) -> Result<usize, MiniscriptError<'input, ParserError<'input>>> {
-        let idx = self.node_idx;
-        self.nodes.push(node).map_err(|it| {
-            MiniscriptError::new(self.input, it.position, ParserError::NodeOverflow(it))
+    // return the next token
+    fn next_token(&mut self) -> Option<(String, usize)> {
+        if self.current_token < self.tokens.len() {
+            let token = self.tokens[self.current_token].clone();
+            self.current_token += 1;
+            Some(token)
+        } else {
+            None
+        }
+    }
+
+    fn peek_token(&self) -> Option<(String, usize)> {
+        if self.current_token < self.tokens.len() {
+            Some(self.tokens[self.current_token].clone())
+        } else {
+            None
+        }
+    }
+
+    fn expect_token(&mut self, expected: &str) -> Result<(String, usize), ParseError> {
+        let (token, column) = self.next_token().ok_or(ParseError::UnexpectedEof {
+            context: "expect_token",
         })?;
-
-        self.node_idx += 1;
-        Ok(idx)
-    }
-
-    pub(crate) fn get_node(&self, idx: usize) -> &Node<'input> {
-        self.nodes.get(idx).unwrap()
-    }
-
-    pub fn visit_node<V: NodeVisitor<'input, NODE_BUFFER_SIZE>>(
-        &self,
-        node: &Node<'input>,
-        visitor: &mut V,
-    ) -> Result<(), V::Error> {
-        visitor.visit_node(node, self)
-    }
-}
-
-//
-// Parsing functions
-//
-
-pub fn parse<'input, const NODE_BUFFER_SIZE: usize>(
-    ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Node<'input>, MiniscriptError<'input, ParserError<'input>>> {
-    parse_logical_fragment(ctx)
-}
-
-fn parse_logical_fragment<'input, const NODE_BUFFER_SIZE: usize>(
-    ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Node<'input>, MiniscriptError<'input, ParserError<'input>>> {
-    let next_token = parse_next_token(ctx)?;
-    match &next_token {
-        Token::Identifier(identifier) => match identifier.value {
-            "andor" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let x = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let y = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let z = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                // The type is same as Y/Z
-                let miniscript_type = y.type_info.base_type.clone();
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::AndOr {
-                        x: ctx.push_node(x)?,
-                        y: ctx.push_node(y)?,
-                        z: ctx.push_node(z)?,
-                    },
-                    miniscript_type,
-                ));
-            }
-            "and_v" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let x = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let y = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                // The type is same as Y
-                let miniscript_type = y.type_info.base_type.clone();
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::AndV {
-                        x: ctx.push_node(x)?,
-                        y: ctx.push_node(y)?,
-                    },
-                    miniscript_type,
-                ));
-            }
-            "and_b" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let x = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let y = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::AndB {
-                        x: ctx.push_node(x)?,
-                        y: ctx.push_node(y)?,
-                    },
-                    MiniscriptType::B,
-                ));
-            }
-            "and_n" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let x = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let y = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::AndN {
-                        x: ctx.push_node(x)?,
-                        y: ctx.push_node(y)?,
-                    },
-                    MiniscriptType::B, // TODO: Check if this is correct
-                ));
-            }
-            "or_b" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let x = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let z = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::OrB {
-                        x: ctx.push_node(x)?,
-                        z: ctx.push_node(z)?,
-                    },
-                    MiniscriptType::B,
-                ));
-            }
-            "or_c" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let x = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let z = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::OrC {
-                        x: ctx.push_node(x)?,
-                        z: ctx.push_node(z)?,
-                    },
-                    MiniscriptType::V,
-                ));
-            }
-            "or_d" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let x = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let z = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::OrD {
-                        x: ctx.push_node(x)?,
-                        z: ctx.push_node(z)?,
-                    },
-                    MiniscriptType::B,
-                ));
-            }
-            "or_i" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let x = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let z = parse_logical_fragment(ctx)?;
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                // The type is same as X/Z
-                let miniscript_type = x.type_info.base_type.clone();
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::OrI {
-                        x: ctx.push_node(x)?,
-                        z: ctx.push_node(z)?,
-                    },
-                    miniscript_type,
-                ));
-            }
-            "thresh" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let k = expect_int(ctx)?;
-
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let mut xs = Vec::new();
-
-                // Parse fragments until we hit the closing parenthesis
-                loop {
-                    let fragment = parse_logical_fragment(ctx)?;
-                    xs.push(ctx.push_node(fragment)?).unwrap();
-
-                    // Check what comes next
-                    let next_token = parse_next_token(ctx)?;
-                    match next_token {
-                        Token::RightParen(_) => {
-                            // End of thresh
-                            break;
-                        }
-                        Token::Comma(_) => {
-                            // Continue with next fragment
-                            continue;
-                        }
-                        _ => {
-                            return Err(MiniscriptError::new(
-                                ctx.input,
-                                *next_token.position(),
-                                ParserError::UnexpectedToken {
-                                    expected: "Comma or RightParen",
-                                    found: next_token,
-                                },
-                            ));
-                        }
-                    }
-                }
-
-                // Validate that we have at least one fragment
-                if xs.is_empty() {
-                    return Err(MiniscriptError::new(
-                        ctx.input,
-                        identifier.position,
-                        ParserError::ThreshNotEnoughFragments,
-                    ));
-                }
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::Thresh { k, xs: xs },
-                    MiniscriptType::B,
-                ));
-            }
-            "a" | "s" | "c" | "d" | "v" | "j" | "n" => {
-                let identity_type = IdentityType::from(identifier.value);
-
-                let identity_result = match identity_type {
-                    IdentityType::A => MiniscriptType::W,
-                    IdentityType::S => MiniscriptType::W,
-                    IdentityType::C => MiniscriptType::B,
-                    IdentityType::D => MiniscriptType::B,
-                    IdentityType::V => MiniscriptType::V,
-                    IdentityType::J => MiniscriptType::B,
-                    IdentityType::N => MiniscriptType::B,
-                };
-                expect_token(ctx, "Colon", |t| matches!(t, Token::Colon(_)))?;
-
-                let x = parse_logical_fragment(ctx)?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::Identity {
-                        identity_type,
-                        x: ctx.push_node(x)?,
-                    },
-                    identity_result,
-                ));
-            }
-            _ => {}
-        },
-        _ => {}
-    }
-    parse_multi_fragment(next_token, ctx)
-}
-
-fn parse_multi_fragment<'input, const NODE_BUFFER_SIZE: usize>(
-    next_token: Token<'input>,
-    ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Node<'input>, MiniscriptError<'input, ParserError<'input>>> {
-    match &next_token {
-        Token::Identifier(identifier) => match identifier.value {
-            "multi" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let k = expect_int(ctx)?;
-
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let mut keys = Vec::new();
-
-                // Parse first key
-                let first_key = expect_identifier(ctx)?;
-                keys.push(first_key).unwrap();
-
-                // Parse remaining keys
-                loop {
-                    let next_token = parse_next_token(ctx)?;
-                    match next_token {
-                        Token::RightParen(_) => {
-                            // End of multi
-                            break;
-                        }
-                        Token::Comma(_) => {
-                            // Continue with next key
-                            let key = expect_identifier(ctx)?;
-                            keys.push(key).unwrap();
-                        }
-                        _ => {
-                            return Err(MiniscriptError::new(
-                                ctx.input,
-                                *next_token.position(),
-                                ParserError::UnexpectedToken {
-                                    expected: "Comma or RightParen",
-                                    found: next_token,
-                                },
-                            ));
-                        }
-                    }
-                }
-
-                // Validate that we have at least one key
-                if keys.is_empty() {
-                    return Err(MiniscriptError::new(
-                        ctx.input,
-                        identifier.position,
-                        ParserError::MultiNotEnoughKeys,
-                    ));
-                }
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::Multi { k, keys: keys },
-                    MiniscriptType::B,
-                ));
-            }
-            "multi_a" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let k = expect_int(ctx)?;
-
-                expect_token(ctx, "Comma", |t| matches!(t, Token::Comma(_)))?;
-
-                let mut keys = Vec::new();
-
-                // Parse first key
-                let first_key = expect_identifier(ctx)?;
-                keys.push(first_key).unwrap();
-
-                // Parse remaining keys
-                loop {
-                    let next_token = parse_next_token(ctx)?;
-                    match next_token {
-                        Token::RightParen(_) => {
-                            // End of multi_a
-                            break;
-                        }
-                        Token::Comma(_) => {
-                            // Continue with next key
-                            let key = expect_identifier(ctx)?;
-                            keys.push(key).unwrap();
-                        }
-                        _ => {
-                            return Err(MiniscriptError::new(
-                                ctx.input,
-                                *next_token.position(),
-                                ParserError::UnexpectedToken {
-                                    expected: "Comma or RightParen",
-                                    found: next_token,
-                                },
-                            ));
-                        }
-                    }
-                }
-
-                // Validate that we have at least one key
-                if keys.is_empty() {
-                    return Err(MiniscriptError::new(
-                        ctx.input,
-                        identifier.position,
-                        ParserError::MultiNotEnoughKeys,
-                    ));
-                }
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::MultiA { k, keys: keys },
-                    MiniscriptType::B,
-                ));
-            }
-            _ => {}
-        },
-        _ => {}
-    }
-    parse_key_fragment(next_token, ctx)
-}
-
-fn parse_key_fragment<'input, const NODE_BUFFER_SIZE: usize>(
-    next_token: Token<'input>,
-    ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Node<'input>, MiniscriptError<'input, ParserError<'input>>> {
-    match &next_token {
-        Token::Identifier(identifier) => match identifier.value {
-            "pk_k" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let key = expect_identifier(ctx)?;
-
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::PkK { key },
-                    MiniscriptType::K,
-                ));
-            }
-            "pk_h" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let key = expect_identifier(ctx)?;
-
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::PkH { key },
-                    MiniscriptType::K,
-                ));
-            }
-            "pk" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let key = expect_identifier(ctx)?;
-
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::Pk { key },
-                    MiniscriptType::K,
-                ));
-            }
-            "pkh" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let key = expect_identifier(ctx)?;
-
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::Pkh { key },
-                    MiniscriptType::K,
-                ));
-            }
-            "older" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let n = expect_int(ctx)?;
-
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::Older { n },
-                    MiniscriptType::B,
-                ));
-            }
-            "after" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let n = expect_int(ctx)?;
-
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::After { n },
-                    MiniscriptType::B,
-                ));
-            }
-            "sha256" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let h = expect_identifier(ctx)?;
-
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::Sha256 { h },
-                    MiniscriptType::B,
-                ));
-            }
-            "hash256" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let h = expect_identifier(ctx)?;
-
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::Hash256 { h },
-                    MiniscriptType::B,
-                ));
-            }
-            "ripemd160" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let h = expect_identifier(ctx)?;
-
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::Ripemd160 { h },
-                    MiniscriptType::B,
-                ));
-            }
-            "hash160" => {
-                expect_token(ctx, "LeftParen", |t| matches!(t, Token::LeftParen(_)))?;
-
-                let h = expect_identifier(ctx)?;
-
-                expect_token(ctx, "RightParen", |t| matches!(t, Token::RightParen(_)))?;
-
-                return Ok(Node::new(
-                    identifier.position,
-                    Fragment::Hash160 { h },
-                    MiniscriptType::B,
-                ));
-            }
-            _ => {}
-        },
-        _ => {}
-    }
-    parse_basic_fragment(next_token, ctx)
-}
-
-fn parse_basic_fragment<'input, const NODE_BUFFER_SIZE: usize>(
-    next_token: Token<'input>,
-    ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Node<'input>, MiniscriptError<'input, ParserError<'input>>> {
-    match next_token {
-        Token::Bool { position, value } => {
-            if value {
-                Ok(Node::new(position, Fragment::True, MiniscriptType::B))
-            } else {
-                Ok(Node::new(position, Fragment::False, MiniscriptType::B))
-            }
+        if token != expected {
+            return Err(ParseError::UnexpectedToken {
+                expected: expected.to_string(),
+                found: (token, column),
+            });
         }
-        invalid_token => Err(MiniscriptError::new(
-            ctx.input,
-            *invalid_token.position(),
-            ParserError::UnexpectedToken {
-                expected: "Bool",
-                found: invalid_token,
-            },
-        )),
+        Ok((token, column))
+    }
+
+    fn peek_next_token(&self) -> Option<(String, usize)> {
+        if self.current_token + 1 < self.tokens.len() {
+            Some(self.tokens[self.current_token + 1].clone())
+        } else {
+            None
+        }
     }
 }
 
-fn parse_next_token<'input, const NODE_BUFFER_SIZE: usize>(
-    ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Token<'input>, MiniscriptError<'input, ParserError<'input>>> {
-    let token_result = ctx.lexer.next_token();
-    match token_result {
-        Ok(Token::Eof(position)) => Err(MiniscriptError::new(
-            ctx.input,
-            position,
-            ParserError::UnexpectedEof,
-        )),
-        Ok(token) => Ok(token),
-        Err(error) => Err(MiniscriptError::new(
-            ctx.input,
-            error.position,
-            ParserError::LexerError(error.inner),
-        )),
-    }
-}
+pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
+    let (token, column) = ctx
+        .peek_token()
+        .ok_or(ParseError::UnexpectedEof { context: "parse" })?;
 
-fn expect_token<'input, const NODE_BUFFER_SIZE: usize>(
-    ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-    expected: &'static str,
-    token_matcher: impl Fn(&Token<'input>) -> bool,
-) -> Result<Token<'input>, MiniscriptError<'input, ParserError<'input>>> {
-    let token = parse_next_token(ctx)?;
-    if token_matcher(&token) {
-        Ok(token)
-    } else {
-        Err(MiniscriptError::new(
-            ctx.input,
-            *token.position(),
-            ParserError::UnexpectedToken {
-                expected,
-                found: token,
-            },
-        ))
-    }
-}
+    match token.as_str() {
+        "0" => {
+            ctx.next_token(); // Advance past "0"
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::False,
+            })
+        }
+        "1" => {
+            ctx.next_token(); // Advance past "1"
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::True,
+            })
+        }
+        "pk_k" => {
+            ctx.next_token(); // Advance past "pk_k"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (key, key_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "pk_k" })?;
 
-fn expect_identifier<'input, const NODE_BUFFER_SIZE: usize>(
-    ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Identifier<'input>, MiniscriptError<'input, ParserError<'input>>> {
-    let token = expect_token(ctx, "Identifier", |t| matches!(t, Token::Identifier(_)))?;
-    if let Token::Identifier(identifier) = token {
-        Ok(identifier)
-    } else {
-        unreachable!()
-    }
-}
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
 
-fn expect_int<'input, const NODE_BUFFER_SIZE: usize>(
-    ctx: &mut Context<'input, NODE_BUFFER_SIZE>,
-) -> Result<Int, MiniscriptError<'input, ParserError<'input>>> {
-    let token = expect_token(ctx, "Int", |t| {
-        matches!(t, Token::Int(_) | Token::Bool { .. })
-    })?;
-    match token {
-        Token::Int(int) => Ok(int),
-        Token::Bool { position, value } => Ok(Int {
-            position,
-            value: if value { 1 } else { 0 },
-        }),
-        _ => unreachable!(),
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::PkK { key },
+            })
+        }
+        "pk_h" => {
+            ctx.next_token(); // Advance past "pk_h"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (key, key_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "pk_h" })?;
+
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::PkH { key },
+            })
+        }
+        "pk" => {
+            // pk(key) = c:pk_k(key)
+
+            ctx.next_token(); // Advance past "pk"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (key, key_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "pk" })?;
+
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            let mut ast = AST {
+                position: Position::new(column),
+                fragment: Fragment::PkK { key },
+            };
+
+            // wrap in c: identity
+            ast = AST {
+                position: Position::new(column),
+                fragment: Fragment::Identity {
+                    identity_type: IdentityType::C,
+                    x: Box::new(ast),
+                },
+            };
+            Ok(ast)
+        }
+        "pkh" => {
+            // pkh(key) = c:pk_h(key)
+
+            ctx.next_token(); // Advance past "pkh"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (key, key_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "pkh" })?;
+
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            let mut ast = AST {
+                position: Position::new(column),
+                fragment: Fragment::PkH { key },
+            };
+
+            // wrap in c: identity
+            ast = AST {
+                position: Position::new(column),
+                fragment: Fragment::Identity {
+                    identity_type: IdentityType::C,
+                    x: Box::new(ast),
+                },
+            };
+            Ok(ast)
+        }
+
+        "older" => {
+            ctx.next_token(); // Advance past "older"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (n, n_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "older" })?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            // check if n is i64
+            let n = n.parse::<i64>().map_err(|_| ParseError::UnexpectedToken {
+                expected: "i64".to_string(),
+                found: (n, n_column),
+            })?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::Older { n },
+            })
+        }
+
+        "after" => {
+            ctx.next_token(); // Advance past "after"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (n, n_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "after" })?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            // check if n is i64
+            let n = n.parse::<i64>().map_err(|_| ParseError::UnexpectedToken {
+                expected: "i64".to_string(),
+                found: (n, n_column),
+            })?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::After { n },
+            })
+        }
+
+        "sha256" => {
+            ctx.next_token(); // Advance past "sha256"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (h, h_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "sha256" })?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::Sha256 { h },
+            })
+        }
+
+        "hash256" => {
+            ctx.next_token(); // Advance past "hash256"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (h, h_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "hash256" })?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::Hash256 { h },
+            })
+        }
+
+        "ripemd160" => {
+            ctx.next_token(); // Advance past "ripemd160"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (h, h_column) = ctx.next_token().ok_or(ParseError::UnexpectedEof {
+                context: "ripemd160",
+            })?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::Ripemd160 { h },
+            })
+        }
+
+        "hash160" => {
+            ctx.next_token(); // Advance past "hash160"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (h, h_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "hash160" })?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::Hash160 { h },
+            })
+        }
+
+        "andor" => {
+            ctx.next_token(); // Advance past "andor"
+
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+
+            let x = parse(ctx)?;
+
+            let (comma, comma_column) = ctx.expect_token(",")?;
+
+            let y = parse(ctx)?;
+
+            let (comma, comma_column) = ctx.expect_token(",")?;
+
+            let z = parse(ctx)?;
+
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::AndOr {
+                    x: Box::new(x),
+                    y: Box::new(y),
+                    z: Box::new(z),
+                },
+            })
+        }
+
+        "and_v" => {
+            ctx.next_token(); // Advance past "and_v"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let x = parse(ctx)?;
+            let (comma, comma_column) = ctx.expect_token(",")?;
+            let y = parse(ctx)?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::AndV {
+                    x: Box::new(x),
+                    y: Box::new(y),
+                },
+            })
+        }
+
+        "and_b" => {
+            ctx.next_token(); // Advance past "and_b"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let x = parse(ctx)?;
+            let (comma, comma_column) = ctx.expect_token(",")?;
+            let y = parse(ctx)?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::AndB {
+                    x: Box::new(x),
+                    y: Box::new(y),
+                },
+            })
+        }
+
+        "and_n" => {
+            // and_n(X,Y) = andor(X,Y,0)
+
+            ctx.next_token(); // Advance past "and_n"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let x = parse(ctx)?;
+            let (comma, comma_column) = ctx.expect_token(",")?;
+            let y = parse(ctx)?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            let ast = AST {
+                position: Position::new(column),
+                fragment: Fragment::AndOr {
+                    x: Box::new(x),
+                    y: Box::new(y),
+                    z: Box::new(AST {
+                        position: Position::new(column),
+                        fragment: Fragment::False,
+                    }),
+                },
+            };
+            Ok(ast)
+        }
+
+        "or_b" => {
+            ctx.next_token(); // Advance past "or_b"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let x = parse(ctx)?;
+            let (comma, comma_column) = ctx.expect_token(",")?;
+            let z = parse(ctx)?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::OrB {
+                    x: Box::new(x),
+                    z: Box::new(z),
+                },
+            })
+        }
+
+        "or_c" => {
+            ctx.next_token(); // Advance past "or_c"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let x = parse(ctx)?;
+            let (comma, comma_column) = ctx.expect_token(",")?;
+            let z = parse(ctx)?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::OrC {
+                    x: Box::new(x),
+                    z: Box::new(z),
+                },
+            })
+        }
+
+        "or_d" => {
+            ctx.next_token(); // Advance past "or_d"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let x = parse(ctx)?;
+            let (comma, comma_column) = ctx.expect_token(",")?;
+            let z = parse(ctx)?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::OrD {
+                    x: Box::new(x),
+                    z: Box::new(z),
+                },
+            })
+        }
+
+        "or_i" => {
+            ctx.next_token(); // Advance past "or_i"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let x = parse(ctx)?;
+            let (comma, comma_column) = ctx.expect_token(",")?;
+            let z = parse(ctx)?;
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::OrI {
+                    x: Box::new(x),
+                    z: Box::new(z),
+                },
+            })
+        }
+
+        "thresh" => {
+            ctx.next_token(); // Advance past "thresh"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (k, k_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "thresh" })?;
+
+            let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
+                expected: "i32".to_string(),
+                found: (k, k_column),
+            })?;
+
+            let mut xs = Vec::new();
+            while let Some((token, column)) = ctx.peek_token() {
+                if token == ")" {
+                    break;
+                } else if token == "," {
+                    ctx.next_token();
+                }
+                let x = parse(ctx)?;
+                xs.push(Box::new(x));
+            }
+
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::Thresh { k, xs },
+            })
+        }
+
+        "multi" => {
+            ctx.next_token(); // Advance past "multi"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (k, k_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "multi" })?;
+            let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
+                expected: "i32".to_string(),
+                found: (k, k_column),
+            })?;
+
+            let mut keys = Vec::new();
+            while let Some((token, column)) = ctx.peek_token() {
+                if token == ")" {
+                    break;
+                } else if token == "," {
+                    ctx.next_token();
+                }
+                let (key, key_column) = ctx
+                    .next_token()
+                    .ok_or(ParseError::UnexpectedEof { context: "multi" })?;
+                keys.push(key);
+            }
+
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::Multi { k, keys },
+            })
+        }
+
+        "multi_a" => {
+            ctx.next_token(); // Advance past "multi_a"
+            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (k, k_column) = ctx
+                .next_token()
+                .ok_or(ParseError::UnexpectedEof { context: "multi_a" })?;
+            let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
+                expected: "i32".to_string(),
+                found: (k, k_column),
+            })?;
+
+            let mut keys = Vec::new();
+            while let Some((token, column)) = ctx.peek_token() {
+                if token == ")" {
+                    break;
+                } else if token == "," {
+                    ctx.next_token();
+                }
+                let (key, key_column) = ctx
+                    .next_token()
+                    .ok_or(ParseError::UnexpectedEof { context: "multi_a" })?;
+                keys.push(key);
+            }
+
+            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+
+            Ok(AST {
+                position: Position::new(column),
+                fragment: Fragment::MultiA { k, keys },
+            })
+        }
+
+        _ => {
+            // check if is identity
+
+            if let Some((peek_token, peek_token_column)) = ctx.peek_next_token() {
+                if peek_token == ":" {
+                    ctx.next_token(); // Advance past identity type
+
+                    ctx.expect_token(":")?;
+
+                    // identity is a list of inner identities, eg av:X
+
+                    let mut node: AST = parse(ctx)?;
+
+                    for id_type in token.chars().rev() {
+                        if id_type == 'a'
+                            || id_type == 'v'
+                            || id_type == 'c'
+                            || id_type == 'd'
+                            || id_type == 's'
+                            || id_type == 'j'
+                            || id_type == 'n'
+                        {
+                            let identity_type = match id_type {
+                                'a' => IdentityType::A,
+                                'v' => IdentityType::V,
+                                'c' => IdentityType::C,
+                                'd' => IdentityType::D,
+                                's' => IdentityType::S,
+                                'j' => IdentityType::J,
+                                'n' => IdentityType::N,
+                                _ => continue,
+                            };
+
+                            node = AST {
+                                position: Position::new(column),
+                                fragment: Fragment::Identity {
+                                    identity_type,
+                                    x: Box::new(node),
+                                },
+                            }
+                        } else if id_type == 't' {
+                            // t:X = and_v(X,1)
+                            node = AST {
+                                position: Position::new(column),
+                                fragment: Fragment::AndV {
+                                    x: Box::new(node),
+                                    y: Box::new(AST {
+                                        position: Position::new(column),
+                                        fragment: Fragment::True,
+                                    }),
+                                },
+                            }
+                        } else if id_type == 'l' {
+                            // l:X = or_i(0,X)
+                            node = AST {
+                                position: Position::new(column),
+                                fragment: Fragment::OrI {
+                                    x: Box::new(AST {
+                                        position: Position::new(column),
+                                        fragment: Fragment::False,
+                                    }),
+                                    z: Box::new(node),
+                                },
+                            }
+                        } else if id_type == 'u' {
+                            // u:X = or_i(X,0)
+                            node = AST {
+                                position: Position::new(column),
+                                fragment: Fragment::OrI {
+                                    x: Box::new(node),
+                                    z: Box::new(AST {
+                                        position: Position::new(column),
+                                        fragment: Fragment::False,
+                                    }),
+                                },
+                            }
+                        }
+                    }
+
+                    return Ok(node);
+                }
+            }
+
+            Err(ParseError::UnexpectedToken {
+                expected: "0 or 1 or pk_k or pk_h or pk or pkh or older or after or sha256 or hash256 or ripemd160 or hash160 or andor or and_v or and_b or and_n or or_b or or_c or or_d or or_i or thresh or multi or multi_a or a:pk_k(key) or v:pk_k(key) or c:pk_k(key) or d:pk_k(key) or s:pk_k(key) or j:pk_k(key) or n:pk_k(key)".to_string(),
+                found: (token, column),
+            })
+        }
     }
 }

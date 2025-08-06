@@ -1,12 +1,9 @@
-mod visitor;
+mod ast_printer;
 
-use f_miniscript::{
-    lexer::Lexer,
-    parser::{self, Context},
-    visitor::CorrectnessPropertiesVisitor,
-};
+use f_miniscript::parser::{self, ASTVisitor, Context};
+use f_miniscript::type_checker::CorrectnessPropertiesVisitor;
 
-use crate::visitor::StringBufferVisitor;
+use crate::ast_printer::ASTPrinter;
 
 fn main() {
     let scripts = vec![
@@ -42,6 +39,7 @@ fn main() {
         "and_v(v:pk(K),pk(A))",
         // PARSER ERRORS
         "pk(2)",
+        "and_v(v:pk(K),pk(A))",
     ];
 
     for script in scripts {
@@ -49,36 +47,32 @@ fn main() {
 
         let mut ctx = Context::new(script);
         match parser::parse(&mut ctx) {
-            Ok(fragment) => {
-                println!("Fragment: {:?}", fragment);
+            Ok(ast) => {
+                println!("{}", script);
+                // println!("{:?}", ast);
 
-                // Example: Using the string buffer visitor to get a formatted tree
-                println!("\nString representation:");
-                let mut string_visitor = StringBufferVisitor::new();
-                let result = ctx.visit_node(&fragment, &mut string_visitor);
-                match result {
-                    Ok(_) => {
-                        println!("{}", string_visitor.get_result());
+                let mut printer = ASTPrinter::new();
+                let tree = printer.print_ast(&ast);
+                println!("AST Tree:");
+                println!("{}", tree);
+
+                // Also test type checking
+                let mut visitor = CorrectnessPropertiesVisitor::new();
+                match visitor.visit_ast(&mut ctx, &ast) {
+                    Ok(type_info) => {
+                        println!("Type: {:?}", type_info);
                     }
-                    Err(err) => {
-                        println!("String representation Error: {:?}", err);
+                    Err(e) => {
+                        println!("Type Error: {:?}", e);
                     }
                 }
-
-                let mut correctness_visitor = CorrectnessPropertiesVisitor::new();
-                let result = ctx.visit_node(&fragment, &mut correctness_visitor);
-                match result {
-                    Ok(_) => {
-                        println!("Correctness properties: {:?}", result);
-                    }
-                    Err(err) => {
-                        println!("Correctness properties Error: {:?}", err);
-                    }
-                }
+                println!("");
             }
             Err(err) => {
-                println!("Parser Error: {:?}", err);
-                break;
+                eprintln!("{}", script);
+                eprintln!("Parse error: {:?}", err);
+                eprintln!("");
+                eprintln!("");
             }
         }
         println!(

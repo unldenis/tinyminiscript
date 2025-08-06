@@ -1,4 +1,6 @@
-f-miniscript — Zero-alloc, no_std, blazing fast [Miniscript](https://bitcoin.sipa.be/miniscript/) library.
+# f-miniscript
+
+f-miniscript — `no_std`, blazing fast [Miniscript](https://bitcoin.sipa.be/miniscript/) library.
 
 ## Analyzing Implementation Size
 
@@ -12,4 +14,4 @@ This will show you the breakdown of all miniscript-related functions and their i
 
 | Architecture | Size    |
 | ------------ | ------- |
-| x86_64       | 38.0 KB |
+| x86_64       | 43.2 KB |
