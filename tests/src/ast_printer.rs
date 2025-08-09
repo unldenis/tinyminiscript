@@ -1,6 +1,6 @@
 // AST Printer
 
-use f_miniscript::parser::{AST, Fragment};
+use miniscript_rs::parser::{AST, Fragment};
 
 pub struct ASTPrinter {
     indent_level: usize,

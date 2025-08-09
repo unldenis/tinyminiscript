@@ -82,13 +82,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "f-miniscript"
-version = "0.1.0"
-dependencies = [
- "bitcoin",
-]
-
-[[package]]
 name = "hex-conservative"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -102,6 +95,13 @@ name = "hex_lit"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3011d1213f159867b13cfd6ac92d2cd5f1345762c63be3554e84092d85a50bbd"
+
+[[package]]
+name = "miniscript-rs"
+version = "0.1.0"
+dependencies = [
+ "bitcoin",
+]
 
 [[package]]
 name = "secp256k1"

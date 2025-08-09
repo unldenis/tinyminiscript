@@ -1,6 +1,6 @@
-# f-miniscript
+# miniscript-rs
 
-f-miniscript — `no_std`, blazing fast [Miniscript](https://bitcoin.sipa.be/miniscript/) library.
+miniscript-rs — `no_std`, blazing fast [Miniscript](https://bitcoin.sipa.be/miniscript/) library.
 
 ## Analyzing Implementation Size
 
@@ -14,4 +14,4 @@ This will show you the breakdown of all miniscript-related functions and their i
 
 | Architecture | Size    |
 | ------------ | ------- |
-| x86_64       | 43.2 KB |
+| x86_64       | 57.3 KB |

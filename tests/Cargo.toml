@@ -6,5 +6,5 @@ edition = "2024"
 [dependencies]
 
 bitcoin = "0.32.7"
-f-miniscript = { path = "../" }
+miniscript-rs = { path = "../" }
 
