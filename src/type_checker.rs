@@ -3,7 +3,7 @@ use alloc::string::String;
 use alloc::{boxed::Box, string::ToString, vec::Vec};
 use core::fmt::Debug;
 
-use crate::parser::{AST, ASTVisitor, Context, Fragment, IdentityType};
+use crate::parser::{AST, ASTVisitor, Fragment, IdentityType};
 
 // Miniscript Types
 
@@ -75,7 +75,7 @@ pub enum CorrectnessPropertiesVisitorError {
 impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
     type Error = CorrectnessPropertiesVisitorError;
 
-    fn visit_ast(&mut self, ctx: &Context, node: &AST) -> Result<TypeInfo, Self::Error> {
+    fn visit_ast(&mut self, node: &AST) -> Result<TypeInfo, Self::Error> {
         match &node.fragment {
             Fragment::False => Ok(TypeInfo::new(
                 MiniscriptType::B,
@@ -117,9 +117,9 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
 
             Fragment::AndOr { x, y, z } => {
                 // X is Bdu; Y and Z are both B, K, or V
-                let x_type = self.visit_ast(ctx, &x)?;
-                let y_type = self.visit_ast(ctx, &y)?;
-                let z_type = self.visit_ast(ctx, &z)?;
+                let x_type = self.visit_ast(&x)?;
+                let y_type = self.visit_ast(&y)?;
+                let z_type = self.visit_ast(&z)?;
 
                 if x_type.base_type() != MiniscriptType::B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
@@ -190,8 +190,8 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
             }
             Fragment::AndV { x, y } => {
                 // X is V; Y is B, K, or V
-                let x_type = self.visit_ast(ctx, &x)?;
-                let y_type = self.visit_ast(ctx, &y)?;
+                let x_type = self.visit_ast(&x)?;
+                let y_type = self.visit_ast(&y)?;
 
                 if x_type.base_type() != MiniscriptType::V {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
@@ -238,8 +238,8 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
             }
             Fragment::AndB { x, y } => {
                 // X is B; Y is W
-                let x_type = self.visit_ast(ctx, &x)?;
-                let y_type = self.visit_ast(ctx, &y)?;
+                let x_type = self.visit_ast(&x)?;
+                let y_type = self.visit_ast(&y)?;
 
                 if x_type.base_type() != MiniscriptType::B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
@@ -287,8 +287,8 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
             // Fragment::AndN { x, y } => Ok(TypeInfo::new(MiniscriptType::B)),
             Fragment::OrB { x, z } => {
                 // X is Bd; Z is Wd
-                let x_type = self.visit_ast(ctx, &x)?;
-                let z_type = self.visit_ast(ctx, &z)?;
+                let x_type = self.visit_ast(&x)?;
+                let z_type = self.visit_ast(&z)?;
 
                 if x_type.base_type() != MiniscriptType::B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
@@ -345,8 +345,8 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
             }
             Fragment::OrC { x, z } => {
                 // X is Bdu; Z is V
-                let x_type = self.visit_ast(ctx, &x)?;
-                let z_type = self.visit_ast(ctx, &z)?;
+                let x_type = self.visit_ast(&x)?;
+                let z_type = self.visit_ast(&z)?;
 
                 if x_type.base_type() != MiniscriptType::B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
@@ -389,8 +389,8 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
             }
             Fragment::OrD { x, z } => {
                 // X is Bdu; Z is B
-                let x_type = self.visit_ast(ctx, &x)?;
-                let z_type = self.visit_ast(ctx, &z)?;
+                let x_type = self.visit_ast(&x)?;
+                let z_type = self.visit_ast(&z)?;
 
                 if x_type.base_type() != MiniscriptType::B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
@@ -441,8 +441,8 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
             }
             Fragment::OrI { x, z } => {
                 // both are B, K, or V
-                let x_type = self.visit_ast(ctx, &x)?;
-                let z_type = self.visit_ast(ctx, &z)?;
+                let x_type = self.visit_ast(&x)?;
+                let z_type = self.visit_ast(&z)?;
 
                 if x_type.base_type() != z_type.base_type() {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
@@ -499,7 +499,7 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
 
                 let mut first_type = true;
                 for (i, x) in xs.iter().enumerate() {
-                    let x_type = self.visit_ast(ctx, &x)?;
+                    let x_type = self.visit_ast(&x)?;
                     if first_type {
                         first_type = false;
 
@@ -551,7 +551,7 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
                 let mut z_count = 0;
                 let mut o_count = 0;
                 for x in xs {
-                    let x_type = self.visit_ast(ctx, &x)?;
+                    let x_type = self.visit_ast(&x)?;
                     if x_type.has_property(Property::Z) {
                         z_count += 1;
                     } else if x_type.has_property(Property::O) {
@@ -606,7 +606,7 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
                 Ok(TypeInfo::new(MiniscriptType::B, properties_from_str!("du")))
             }
             Fragment::Identity { identity_type, x } => {
-                let x_type = self.visit_ast(ctx, &x)?;
+                let x_type = self.visit_ast(&x)?;
 
                 match identity_type {
                     IdentityType::A => {

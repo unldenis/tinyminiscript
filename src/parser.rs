@@ -8,7 +8,7 @@ use core::fmt::Debug;
 pub trait ASTVisitor<T> {
     type Error;
 
-    fn visit_ast(&mut self, ctx: &Context, node: &AST) -> Result<T, Self::Error>;
+    fn visit_ast(&mut self, node: &AST) -> Result<T, Self::Error>;
 }
 
 // Models
@@ -163,13 +163,13 @@ pub enum ParseError {
     },
 }
 
-pub struct Context {
+struct Context {
     tokens: Vec<(String, usize)>,
     current_token: usize,
 }
 
 impl Context {
-    pub fn new(input: &str) -> Self {
+    fn new(input: &str) -> Self {
         let tokens =
             split_string_with_columns(input, |c| c == '(' || c == ')' || c == ',' || c == ':');
         Self {
@@ -219,7 +219,12 @@ impl Context {
     }
 }
 
-pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
+pub fn parse(input: &str) -> Result<AST, ParseError> {
+    let mut ctx = Context::new(input);
+    parse_internal(&mut ctx)
+}
+
+fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
     let (token, column) = ctx
         .peek_token()
         .ok_or(ParseError::UnexpectedEof { context: "parse" })?;
@@ -421,15 +426,15 @@ pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
 
             let (l_paren, l_paren_column) = ctx.expect_token("(")?;
 
-            let x = parse(ctx)?;
+            let x = parse_internal(ctx)?;
 
             let (comma, comma_column) = ctx.expect_token(",")?;
 
-            let y = parse(ctx)?;
+            let y = parse_internal(ctx)?;
 
             let (comma, comma_column) = ctx.expect_token(",")?;
 
-            let z = parse(ctx)?;
+            let z = parse_internal(ctx)?;
 
             let (r_paren, r_paren_column) = ctx.expect_token(")")?;
 
@@ -446,9 +451,9 @@ pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
         "and_v" => {
             ctx.next_token(); // Advance past "and_v"
             let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let x = parse(ctx)?;
+            let x = parse_internal(ctx)?;
             let (comma, comma_column) = ctx.expect_token(",")?;
-            let y = parse(ctx)?;
+            let y = parse_internal(ctx)?;
             let (r_paren, r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -463,9 +468,9 @@ pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
         "and_b" => {
             ctx.next_token(); // Advance past "and_b"
             let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let x = parse(ctx)?;
+            let x = parse_internal(ctx)?;
             let (comma, comma_column) = ctx.expect_token(",")?;
-            let y = parse(ctx)?;
+            let y = parse_internal(ctx)?;
             let (r_paren, r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -482,9 +487,9 @@ pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
 
             ctx.next_token(); // Advance past "and_n"
             let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let x = parse(ctx)?;
+            let x = parse_internal(ctx)?;
             let (comma, comma_column) = ctx.expect_token(",")?;
-            let y = parse(ctx)?;
+            let y = parse_internal(ctx)?;
             let (r_paren, r_paren_column) = ctx.expect_token(")")?;
 
             let ast = AST {
@@ -504,9 +509,9 @@ pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
         "or_b" => {
             ctx.next_token(); // Advance past "or_b"
             let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let x = parse(ctx)?;
+            let x = parse_internal(ctx)?;
             let (comma, comma_column) = ctx.expect_token(",")?;
-            let z = parse(ctx)?;
+            let z = parse_internal(ctx)?;
             let (r_paren, r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -521,9 +526,9 @@ pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
         "or_c" => {
             ctx.next_token(); // Advance past "or_c"
             let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let x = parse(ctx)?;
+            let x = parse_internal(ctx)?;
             let (comma, comma_column) = ctx.expect_token(",")?;
-            let z = parse(ctx)?;
+            let z = parse_internal(ctx)?;
             let (r_paren, r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -538,9 +543,9 @@ pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
         "or_d" => {
             ctx.next_token(); // Advance past "or_d"
             let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let x = parse(ctx)?;
+            let x = parse_internal(ctx)?;
             let (comma, comma_column) = ctx.expect_token(",")?;
-            let z = parse(ctx)?;
+            let z = parse_internal(ctx)?;
             let (r_paren, r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -555,9 +560,9 @@ pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
         "or_i" => {
             ctx.next_token(); // Advance past "or_i"
             let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let x = parse(ctx)?;
+            let x = parse_internal(ctx)?;
             let (comma, comma_column) = ctx.expect_token(",")?;
-            let z = parse(ctx)?;
+            let z = parse_internal(ctx)?;
             let (r_paren, r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -588,7 +593,7 @@ pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
                 } else if token == "," {
                     ctx.next_token();
                 }
-                let x = parse(ctx)?;
+                let x = parse_internal(ctx)?;
                 xs.push(Box::new(x));
             }
 
@@ -675,7 +680,7 @@ pub fn parse(ctx: &mut Context) -> Result<AST, ParseError> {
 
                     // identity is a list of inner identities, eg av:X
 
-                    let mut node: AST = parse(ctx)?;
+                    let mut node: AST = parse_internal(ctx)?;
 
                     for id_type in token.chars().rev() {
                         if id_type == 'a'
