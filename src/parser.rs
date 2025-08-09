@@ -1,6 +1,4 @@
-use alloc::format;
-use alloc::string::String;
-use alloc::{boxed::Box, string::ToString, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use core::fmt::Debug;
 
 // AST Visitor
@@ -11,28 +9,19 @@ pub trait ASTVisitor<T> {
     fn visit_ast(&mut self, node: &AST) -> Result<T, Self::Error>;
 }
 
-// Models
-
-#[derive(Clone, Copy, Debug)]
-pub struct Position {
-    pub column: usize,
-}
-impl Position {
-    pub fn new(column: usize) -> Self {
-        Self { column }
-    }
-}
+// Position
+pub type Position = usize;
 
 // AST
 
 #[derive(Debug)]
-pub struct AST {
+pub struct AST<'a> {
     pub position: Position,
-    pub fragment: Fragment,
+    pub fragment: Fragment<'a>,
 }
 
 #[derive(Debug)]
-pub enum Fragment {
+pub enum Fragment<'a> {
     // Basic Fragments
     /// 0
     False,
@@ -41,14 +30,9 @@ pub enum Fragment {
 
     // Key Fragments
     /// pk_k(key)
-    PkK { key: String },
+    PkK { key: &'a str },
     /// pk_h(key)
-    PkH { key: String },
-
-    // /// pk(key) = c:pk_k(key)
-    // Pk { key: String },
-    // /// pkh(key) = c:pk_h(key)
-    // Pkh { key: String },
+    PkH { key: &'a str },
 
     // Time fragments
     /// older(n)
@@ -58,50 +42,50 @@ pub enum Fragment {
 
     // Hash Fragments
     /// sha256(h)
-    Sha256 { h: String },
+    Sha256 { h: &'a str },
     /// hash256(h)
-    Hash256 { h: String },
+    Hash256 { h: &'a str },
     /// ripemd160(h)
-    Ripemd160 { h: String },
+    Ripemd160 { h: &'a str },
     /// hash160(h)
-    Hash160 { h: String },
+    Hash160 { h: &'a str },
 
     // Logical Fragments
     /// andor(X,Y,Z)
     AndOr {
-        x: Box<AST>,
-        y: Box<AST>,
-        z: Box<AST>,
+        x: Box<AST<'a>>,
+        y: Box<AST<'a>>,
+        z: Box<AST<'a>>,
     },
     /// and_v(X,Y)
-    AndV { x: Box<AST>, y: Box<AST> },
+    AndV { x: Box<AST<'a>>, y: Box<AST<'a>> },
     /// and_b(X,Y)
-    AndB { x: Box<AST>, y: Box<AST> },
+    AndB { x: Box<AST<'a>>, y: Box<AST<'a>> },
 
     // /// and_n(X,Y) = andor(X,Y,0)
     // AndN { x: Box<AST>, y: Box<AST> },
     /// or_b(X,Z)
-    OrB { x: Box<AST>, z: Box<AST> },
+    OrB { x: Box<AST<'a>>, z: Box<AST<'a>> },
     /// or_c(X,Z)
-    OrC { x: Box<AST>, z: Box<AST> },
+    OrC { x: Box<AST<'a>>, z: Box<AST<'a>> },
     /// or_d(X,Z)
-    OrD { x: Box<AST>, z: Box<AST> },
+    OrD { x: Box<AST<'a>>, z: Box<AST<'a>> },
     /// or_i(X,Z)
-    OrI { x: Box<AST>, z: Box<AST> },
+    OrI { x: Box<AST<'a>>, z: Box<AST<'a>> },
 
     // Threshold Fragments
     /// thresh(k,X1,...,Xn)
-    Thresh { k: i32, xs: Vec<Box<AST>> },
+    Thresh { k: i32, xs: Vec<Box<AST<'a>>> },
     ///  multi(k,key1,...,keyn)
     /// (P2WSH only)
-    Multi { k: i32, keys: Vec<String> },
+    Multi { k: i32, keys: Vec<&'a str> },
     /// multi_a(k,key1,...,keyn)
     /// (Tapscript only)
-    MultiA { k: i32, keys: Vec<String> },
+    MultiA { k: i32, keys: Vec<&'a str> },
 
     Identity {
         identity_type: IdentityType,
-        x: Box<AST>,
+        x: Box<AST<'a>>,
     },
 }
 
@@ -116,11 +100,14 @@ pub enum IdentityType {
     N,
 }
 
-fn split_string_with_columns<F>(s: &str, is_separator: F) -> Vec<(String, usize)>
+// Optimized tokenization using string slices instead of owned strings
+fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec<(&'a str, usize)>
 where
     F: Fn(char) -> bool,
 {
-    let mut result = Vec::new();
+    // Pre-allocate with estimated capacity to reduce reallocations
+    let estimated_tokens = s.len() / 3 + 1; // Rough estimate
+    let mut result = Vec::with_capacity(estimated_tokens);
     let mut char_indices = s.char_indices().peekable();
     let mut start = 0;
     let mut column = 1;
@@ -130,12 +117,12 @@ where
             if start < i {
                 // Push the slice before the separator
                 let part = &s[start..i];
-                result.push((part.to_string(), column));
+                result.push((part, column));
                 column += part.chars().count();
             }
 
             // Push the separator itself
-            result.push((c.to_string(), column));
+            result.push((&s[i..i + c.len_utf8()], column));
             column += 1;
             char_indices.next();
             start = i + c.len_utf8();
@@ -146,30 +133,30 @@ where
 
     if start < s.len() {
         let part = &s[start..];
-        result.push((part.to_string(), column));
+        result.push((part, column));
     }
 
     result
 }
 
 #[derive(Debug)]
-pub enum ParseError {
+pub enum ParseError<'a> {
     UnexpectedEof {
         context: &'static str,
     },
     UnexpectedToken {
-        expected: String,
-        found: (String, usize),
+        expected: &'static str,
+        found: (&'a str, usize),
     },
 }
 
-struct Context {
-    tokens: Vec<(String, usize)>,
+struct Context<'a> {
+    tokens: Vec<(&'a str, usize)>,
     current_token: usize,
 }
 
-impl Context {
-    fn new(input: &str) -> Self {
+impl<'a> Context<'a> {
+    fn new(input: &'a str) -> Self {
         let tokens =
             split_string_with_columns(input, |c| c == '(' || c == ')' || c == ',' || c == ':');
         Self {
@@ -179,9 +166,9 @@ impl Context {
     }
 
     // return the next token
-    fn next_token(&mut self) -> Option<(String, usize)> {
+    fn next_token(&mut self) -> Option<(&'a str, usize)> {
         if self.current_token < self.tokens.len() {
-            let token = self.tokens[self.current_token].clone();
+            let token = self.tokens[self.current_token];
             self.current_token += 1;
             Some(token)
         } else {
@@ -189,86 +176,86 @@ impl Context {
         }
     }
 
-    fn peek_token(&self) -> Option<(String, usize)> {
+    fn peek_token(&self) -> Option<(&'a str, usize)> {
         if self.current_token < self.tokens.len() {
-            Some(self.tokens[self.current_token].clone())
+            Some(self.tokens[self.current_token])
         } else {
             None
         }
     }
 
-    fn expect_token(&mut self, expected: &str) -> Result<(String, usize), ParseError> {
+    fn expect_token(&mut self, expected: &'static str) -> Result<(&'a str, usize), ParseError<'a>> {
         let (token, column) = self.next_token().ok_or(ParseError::UnexpectedEof {
             context: "expect_token",
         })?;
         if token != expected {
             return Err(ParseError::UnexpectedToken {
-                expected: expected.to_string(),
+                expected,
                 found: (token, column),
             });
         }
         Ok((token, column))
     }
 
-    fn peek_next_token(&self) -> Option<(String, usize)> {
+    fn peek_next_token(&self) -> Option<(&'a str, usize)> {
         if self.current_token + 1 < self.tokens.len() {
-            Some(self.tokens[self.current_token + 1].clone())
+            Some(self.tokens[self.current_token + 1])
         } else {
             None
         }
     }
 }
 
-pub fn parse(input: &str) -> Result<AST, ParseError> {
+pub fn parse<'a>(input: &'a str) -> Result<AST<'a>, ParseError<'a>> {
     let mut ctx = Context::new(input);
     parse_internal(&mut ctx)
 }
 
-fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
+fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> {
     let (token, column) = ctx
         .peek_token()
         .ok_or(ParseError::UnexpectedEof { context: "parse" })?;
 
-    match token.as_str() {
+    match token {
         "0" => {
             ctx.next_token(); // Advance past "0"
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::False,
             })
         }
         "1" => {
             ctx.next_token(); // Advance past "1"
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::True,
             })
         }
         "pk_k" => {
             ctx.next_token(); // Advance past "pk_k"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let (key, key_column) = ctx
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            let (key, _key_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "pk_k" })?;
 
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::PkK { key },
             })
         }
         "pk_h" => {
             ctx.next_token(); // Advance past "pk_h"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let (key, key_column) = ctx
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            let (key, _key_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "pk_h" })?;
 
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::PkH { key },
             })
         }
@@ -276,21 +263,21 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
             // pk(key) = c:pk_k(key)
 
             ctx.next_token(); // Advance past "pk"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let (key, key_column) = ctx
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            let (key, _key_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "pk" })?;
 
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             let mut ast = AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::PkK { key },
             };
 
             // wrap in c: identity
             ast = AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::Identity {
                     identity_type: IdentityType::C,
                     x: Box::new(ast),
@@ -302,21 +289,21 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
             // pkh(key) = c:pk_h(key)
 
             ctx.next_token(); // Advance past "pkh"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let (key, key_column) = ctx
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            let (key, _key_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "pkh" })?;
 
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             let mut ast = AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::PkH { key },
             };
 
             // wrap in c: identity
             ast = AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::Identity {
                     identity_type: IdentityType::C,
                     x: Box::new(ast),
@@ -327,96 +314,96 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
 
         "older" => {
             ctx.next_token(); // Advance past "older"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let (n, n_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "older" })?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             // check if n is i64
             let n = n.parse::<i64>().map_err(|_| ParseError::UnexpectedToken {
-                expected: "i64".to_string(),
+                expected: "i64",
                 found: (n, n_column),
             })?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::Older { n },
             })
         }
 
         "after" => {
             ctx.next_token(); // Advance past "after"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let (n, n_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "after" })?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             // check if n is i64
             let n = n.parse::<i64>().map_err(|_| ParseError::UnexpectedToken {
-                expected: "i64".to_string(),
+                expected: "i64",
                 found: (n, n_column),
             })?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::After { n },
             })
         }
 
         "sha256" => {
             ctx.next_token(); // Advance past "sha256"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let (h, h_column) = ctx
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            let (h, _h_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "sha256" })?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::Sha256 { h },
             })
         }
 
         "hash256" => {
             ctx.next_token(); // Advance past "hash256"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let (h, h_column) = ctx
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            let (h, _h_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "hash256" })?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::Hash256 { h },
             })
         }
 
         "ripemd160" => {
             ctx.next_token(); // Advance past "ripemd160"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let (h, h_column) = ctx.next_token().ok_or(ParseError::UnexpectedEof {
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            let (h, _h_column) = ctx.next_token().ok_or(ParseError::UnexpectedEof {
                 context: "ripemd160",
             })?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::Ripemd160 { h },
             })
         }
 
         "hash160" => {
             ctx.next_token(); // Advance past "hash160"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
-            let (h, h_column) = ctx
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            let (h, _h_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "hash160" })?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::Hash160 { h },
             })
         }
@@ -424,22 +411,22 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
         "andor" => {
             ctx.next_token(); // Advance past "andor"
 
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
 
             let x = parse_internal(ctx)?;
 
-            let (comma, comma_column) = ctx.expect_token(",")?;
+            let (_comma, _comma_column) = ctx.expect_token(",")?;
 
             let y = parse_internal(ctx)?;
 
-            let (comma, comma_column) = ctx.expect_token(",")?;
+            let (_comma, _comma_column) = ctx.expect_token(",")?;
 
             let z = parse_internal(ctx)?;
 
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::AndOr {
                     x: Box::new(x),
                     y: Box::new(y),
@@ -450,14 +437,14 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
 
         "and_v" => {
             ctx.next_token(); // Advance past "and_v"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let x = parse_internal(ctx)?;
-            let (comma, comma_column) = ctx.expect_token(",")?;
+            let (_comma, _comma_column) = ctx.expect_token(",")?;
             let y = parse_internal(ctx)?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::AndV {
                     x: Box::new(x),
                     y: Box::new(y),
@@ -467,14 +454,14 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
 
         "and_b" => {
             ctx.next_token(); // Advance past "and_b"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let x = parse_internal(ctx)?;
-            let (comma, comma_column) = ctx.expect_token(",")?;
+            let (_comma, _comma_column) = ctx.expect_token(",")?;
             let y = parse_internal(ctx)?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::AndB {
                     x: Box::new(x),
                     y: Box::new(y),
@@ -486,19 +473,19 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
             // and_n(X,Y) = andor(X,Y,0)
 
             ctx.next_token(); // Advance past "and_n"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let x = parse_internal(ctx)?;
-            let (comma, comma_column) = ctx.expect_token(",")?;
+            let (_comma, _comma_column) = ctx.expect_token(",")?;
             let y = parse_internal(ctx)?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             let ast = AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::AndOr {
                     x: Box::new(x),
                     y: Box::new(y),
                     z: Box::new(AST {
-                        position: Position::new(column),
+                        position: column,
                         fragment: Fragment::False,
                     }),
                 },
@@ -508,14 +495,14 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
 
         "or_b" => {
             ctx.next_token(); // Advance past "or_b"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let x = parse_internal(ctx)?;
-            let (comma, comma_column) = ctx.expect_token(",")?;
+            let (_comma, _comma_column) = ctx.expect_token(",")?;
             let z = parse_internal(ctx)?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::OrB {
                     x: Box::new(x),
                     z: Box::new(z),
@@ -525,14 +512,14 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
 
         "or_c" => {
             ctx.next_token(); // Advance past "or_c"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let x = parse_internal(ctx)?;
-            let (comma, comma_column) = ctx.expect_token(",")?;
+            let (_comma, _comma_column) = ctx.expect_token(",")?;
             let z = parse_internal(ctx)?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::OrC {
                     x: Box::new(x),
                     z: Box::new(z),
@@ -542,14 +529,14 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
 
         "or_d" => {
             ctx.next_token(); // Advance past "or_d"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let x = parse_internal(ctx)?;
-            let (comma, comma_column) = ctx.expect_token(",")?;
+            let (_comma, _comma_column) = ctx.expect_token(",")?;
             let z = parse_internal(ctx)?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::OrD {
                     x: Box::new(x),
                     z: Box::new(z),
@@ -559,14 +546,14 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
 
         "or_i" => {
             ctx.next_token(); // Advance past "or_i"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let x = parse_internal(ctx)?;
-            let (comma, comma_column) = ctx.expect_token(",")?;
+            let (_comma, _comma_column) = ctx.expect_token(",")?;
             let z = parse_internal(ctx)?;
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::OrI {
                     x: Box::new(x),
                     z: Box::new(z),
@@ -576,18 +563,19 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
 
         "thresh" => {
             ctx.next_token(); // Advance past "thresh"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let (k, k_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "thresh" })?;
 
             let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
-                expected: "i32".to_string(),
+                expected: "i32",
                 found: (k, k_column),
             })?;
 
-            let mut xs = Vec::new();
-            while let Some((token, column)) = ctx.peek_token() {
+            // Pre-allocate with reasonable capacity to reduce reallocations
+            let mut xs = Vec::with_capacity(8);
+            while let Some((token, _column)) = ctx.peek_token() {
                 if token == ")" {
                     break;
                 } else if token == "," {
@@ -597,74 +585,76 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
                 xs.push(Box::new(x));
             }
 
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::Thresh { k, xs },
             })
         }
 
         "multi" => {
             ctx.next_token(); // Advance past "multi"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let (k, k_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "multi" })?;
             let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
-                expected: "i32".to_string(),
+                expected: "i32",
                 found: (k, k_column),
             })?;
 
-            let mut keys = Vec::new();
-            while let Some((token, column)) = ctx.peek_token() {
+            // Pre-allocate with reasonable capacity
+            let mut keys = Vec::with_capacity(8);
+            while let Some((token, _column)) = ctx.peek_token() {
                 if token == ")" {
                     break;
                 } else if token == "," {
                     ctx.next_token();
                 }
-                let (key, key_column) = ctx
+                let (key, _key_column) = ctx
                     .next_token()
                     .ok_or(ParseError::UnexpectedEof { context: "multi" })?;
                 keys.push(key);
             }
 
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::Multi { k, keys },
             })
         }
 
         "multi_a" => {
             ctx.next_token(); // Advance past "multi_a"
-            let (l_paren, l_paren_column) = ctx.expect_token("(")?;
+            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
             let (k, k_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "multi_a" })?;
             let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
-                expected: "i32".to_string(),
+                expected: "i32",
                 found: (k, k_column),
             })?;
 
-            let mut keys = Vec::new();
-            while let Some((token, column)) = ctx.peek_token() {
+            // Pre-allocate with reasonable capacity
+            let mut keys = Vec::with_capacity(8);
+            while let Some((token, _column)) = ctx.peek_token() {
                 if token == ")" {
                     break;
                 } else if token == "," {
                     ctx.next_token();
                 }
-                let (key, key_column) = ctx
+                let (key, _key_column) = ctx
                     .next_token()
                     .ok_or(ParseError::UnexpectedEof { context: "multi_a" })?;
                 keys.push(key);
             }
 
-            let (r_paren, r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
-                position: Position::new(column),
+                position: column,
                 fragment: Fragment::MultiA { k, keys },
             })
         }
@@ -672,7 +662,7 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
         _ => {
             // check if is identity
 
-            if let Some((peek_token, peek_token_column)) = ctx.peek_next_token() {
+            if let Some((peek_token, _peek_token_column)) = ctx.peek_next_token() {
                 if peek_token == ":" {
                     ctx.next_token(); // Advance past identity type
 
@@ -703,7 +693,7 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
                             };
 
                             node = AST {
-                                position: Position::new(column),
+                                position: column,
                                 fragment: Fragment::Identity {
                                     identity_type,
                                     x: Box::new(node),
@@ -712,11 +702,11 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
                         } else if id_type == 't' {
                             // t:X = and_v(X,1)
                             node = AST {
-                                position: Position::new(column),
+                                position: column,
                                 fragment: Fragment::AndV {
                                     x: Box::new(node),
                                     y: Box::new(AST {
-                                        position: Position::new(column),
+                                        position: column,
                                         fragment: Fragment::True,
                                     }),
                                 },
@@ -724,10 +714,10 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
                         } else if id_type == 'l' {
                             // l:X = or_i(0,X)
                             node = AST {
-                                position: Position::new(column),
+                                position: column,
                                 fragment: Fragment::OrI {
                                     x: Box::new(AST {
-                                        position: Position::new(column),
+                                        position: column,
                                         fragment: Fragment::False,
                                     }),
                                     z: Box::new(node),
@@ -736,11 +726,11 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
                         } else if id_type == 'u' {
                             // u:X = or_i(X,0)
                             node = AST {
-                                position: Position::new(column),
+                                position: column,
                                 fragment: Fragment::OrI {
                                     x: Box::new(node),
                                     z: Box::new(AST {
-                                        position: Position::new(column),
+                                        position: column,
                                         fragment: Fragment::False,
                                     }),
                                 },
@@ -753,7 +743,7 @@ fn parse_internal(ctx: &mut Context) -> Result<AST, ParseError> {
             }
 
             Err(ParseError::UnexpectedToken {
-                expected: "0 or 1 or pk_k or pk_h or pk or pkh or older or after or sha256 or hash256 or ripemd160 or hash160 or andor or and_v or and_b or and_n or or_b or or_c or or_d or or_i or thresh or multi or multi_a or a:pk_k(key) or v:pk_k(key) or c:pk_k(key) or d:pk_k(key) or s:pk_k(key) or j:pk_k(key) or n:pk_k(key)".to_string(),
+                expected: "0 or 1 or pk_k or pk_h or pk or pkh or older or after or sha256 or hash256 or ripemd160 or hash160 or andor or and_v or and_b or and_n or or_b or or_c or or_d or or_i or thresh or multi or multi_a or a:pk_k(key) or v:pk_k(key) or c:pk_k(key) or d:pk_k(key) or s:pk_k(key) or j:pk_k(key) or n:pk_k(key)",
                 found: (token, column),
             })
         }

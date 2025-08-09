@@ -1,59 +1,59 @@
-use alloc::{collections::BTreeMap, string::String, vec::Vec};
+use alloc::collections::BTreeMap;
 use bitcoin::{
-    Opcode, PublicKey, ScriptBuf, opcodes,
+    PublicKey, ScriptBuf, opcodes,
     script::{Builder, PushBytesBuf},
 };
 
 use crate::parser::{AST, Fragment};
 
 #[derive(Debug)]
-pub struct ScriptBuilder {
-    keys: BTreeMap<String, PublicKey>,
-    hashes: BTreeMap<String, PushBytesBuf>,
+pub struct ScriptBuilder<'a> {
+    keys: BTreeMap<&'a str, PublicKey>,
+    hashes: BTreeMap<&'a str, PushBytesBuf>,
 }
 
-impl Default for ScriptBuilder {
+impl<'a> Default for ScriptBuilder<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ScriptBuilder {
+impl<'a> ScriptBuilder<'a> {
     pub fn new() -> Self {
         Self {
             keys: BTreeMap::new(),
             hashes: BTreeMap::new(),
         }
     }
-    pub fn add_key(&mut self, key: String, public_key: PublicKey) {
+    pub fn add_key(&mut self, key: &'a str, public_key: PublicKey) {
         self.keys.insert(key, public_key);
     }
 
-    pub fn add_hash(&mut self, hash: String, data: PushBytesBuf) {
+    pub fn add_hash(&mut self, hash: &'a str, data: PushBytesBuf) {
         self.hashes.insert(hash, data);
     }
 }
 
 #[derive(Debug)]
-pub enum ScriptBuilderError {
-    KeyNotFound { key: String },
-    HashNotFound { hash: String },
+pub enum ScriptBuilderError<'a> {
+    KeyNotFound { key: &'a str },
+    HashNotFound { hash: &'a str },
 }
 
-pub fn build_script(
-    script_builder: &ScriptBuilder,
-    ast: &AST,
-) -> Result<ScriptBuf, ScriptBuilderError> {
+pub fn build_script<'a>(
+    script_builder: &ScriptBuilder<'a>,
+    ast: &AST<'a>,
+) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
     let mut builder = Builder::new();
     builder = build_fragment(script_builder, ast, builder)?;
     Ok(builder.into_script())
 }
 
-fn build_fragment(
-    script_builder: &ScriptBuilder,
-    ast: &AST,
+fn build_fragment<'a>(
+    script_builder: &ScriptBuilder<'a>,
+    ast: &AST<'a>,
     mut builder: Builder,
-) -> Result<Builder, ScriptBuilderError> {
+) -> Result<Builder, ScriptBuilderError<'a>> {
     match &ast.fragment {
         Fragment::False => {
             builder = builder.push_opcode(opcodes::OP_FALSE);
@@ -67,7 +67,7 @@ fn build_fragment(
             let public_key = script_builder
                 .keys
                 .get(key)
-                .ok_or(ScriptBuilderError::KeyNotFound { key: key.clone() })?;
+                .ok_or(ScriptBuilderError::KeyNotFound { key })?;
             builder = builder.push_key(public_key);
             Ok(builder)
         }
@@ -75,7 +75,7 @@ fn build_fragment(
             let public_key = script_builder
                 .keys
                 .get(key)
-                .ok_or(ScriptBuilderError::KeyNotFound { key: key.clone() })?;
+                .ok_or(ScriptBuilderError::KeyNotFound { key })?;
             builder = builder
                 .push_opcode(opcodes::all::OP_DUP)
                 .push_opcode(opcodes::all::OP_HASH160)
@@ -95,7 +95,7 @@ fn build_fragment(
             let hash = script_builder
                 .hashes
                 .get(h)
-                .ok_or(ScriptBuilderError::HashNotFound { hash: h.clone() })?;
+                .ok_or(ScriptBuilderError::HashNotFound { hash: h })?;
 
             builder = builder
                 .push_opcode(opcodes::all::OP_SIZE)
@@ -110,7 +110,7 @@ fn build_fragment(
             let hash = script_builder
                 .hashes
                 .get(h)
-                .ok_or(ScriptBuilderError::HashNotFound { hash: h.clone() })?;
+                .ok_or(ScriptBuilderError::HashNotFound { hash: h })?;
             builder = builder
                 .push_opcode(opcodes::all::OP_SIZE)
                 .push_int(32)
@@ -124,7 +124,7 @@ fn build_fragment(
             let hash = script_builder
                 .hashes
                 .get(h)
-                .ok_or(ScriptBuilderError::HashNotFound { hash: h.clone() })?;
+                .ok_or(ScriptBuilderError::HashNotFound { hash: h })?;
             builder = builder
                 .push_opcode(opcodes::all::OP_SIZE)
                 .push_int(32)
@@ -138,7 +138,7 @@ fn build_fragment(
             let hash = script_builder
                 .hashes
                 .get(h)
-                .ok_or(ScriptBuilderError::HashNotFound { hash: h.clone() })?;
+                .ok_or(ScriptBuilderError::HashNotFound { hash: h })?;
             builder = builder
                 .push_opcode(opcodes::all::OP_SIZE)
                 .push_int(32)
@@ -213,7 +213,7 @@ fn build_fragment(
                 let public_key = script_builder
                     .keys
                     .get(key)
-                    .ok_or(ScriptBuilderError::KeyNotFound { key: key.clone() })?;
+                    .ok_or(ScriptBuilderError::KeyNotFound { key })?;
                 builder = builder.push_key(public_key);
             }
             builder = builder.push_int(keys.len() as i64);
@@ -226,7 +226,7 @@ fn build_fragment(
                 let public_key = script_builder
                     .keys
                     .get(key)
-                    .ok_or(ScriptBuilderError::KeyNotFound { key: key.clone() })?;
+                    .ok_or(ScriptBuilderError::KeyNotFound { key })?;
                 builder = builder.push_key(public_key);
                 builder = builder.push_opcode(opcodes::all::OP_CHECKSIG);
                 builder = builder.push_opcode(opcodes::all::OP_ADD);

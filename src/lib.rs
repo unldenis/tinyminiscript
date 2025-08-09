@@ -3,7 +3,6 @@
 
 pub mod parser;
 pub mod script;
-mod translator;
 pub mod type_checker;
 
 pub extern crate alloc;
@@ -17,16 +16,16 @@ use script::ScriptBuilder;
 use crate::{parser::AST, type_checker::TypeInfo};
 
 #[derive(Debug)]
-pub enum MiniscriptError {
-    ParserError(parser::ParseError),
+pub enum MiniscriptError<'a> {
+    ParserError(parser::ParseError<'a>),
     TypeCheckerError(type_checker::CorrectnessPropertiesVisitorError),
-    ScriptBuilderError(script::ScriptBuilderError),
+    ScriptBuilderError(script::ScriptBuilderError<'a>),
 }
 
-pub fn parse_script(
-    script: &str,
-    script_builder: &ScriptBuilder,
-) -> Result<(AST, ScriptBuf), MiniscriptError> {
+pub fn parse_script<'a>(
+    script: &'a str,
+    script_builder: &ScriptBuilder<'a>,
+) -> Result<(AST<'a>, ScriptBuf), MiniscriptError<'a>> {
     let ast = parser::parse(script).map_err(|e| MiniscriptError::ParserError(e))?;
 
     // type check the ast

@@ -10,8 +10,8 @@ fn main() {
             .unwrap();
 
     let mut builder = miniscript_rs::script::ScriptBuilder::new();
-    builder.add_key("pubkey1".to_string(), pubkey1);
-    builder.add_key("pubkey2".to_string(), pubkey1);
+    builder.add_key("pubkey1", pubkey1);
+    builder.add_key("pubkey2", pubkey1);
 
     let mut ast_printer = ast_printer::ASTPrinter::new();
 
