@@ -13,7 +13,10 @@ use bitcoin::ScriptBuf;
 use parser::ASTVisitor;
 use script::ScriptBuilder;
 
-use crate::{parser::AST, type_checker::TypeInfo};
+use crate::{
+    parser::{AST, ParserContext},
+    type_checker::TypeInfo,
+};
 
 #[derive(Debug)]
 pub enum MiniscriptError<'a> {
@@ -25,15 +28,15 @@ pub enum MiniscriptError<'a> {
 pub fn parse_script<'a>(
     script: &'a str,
     script_builder: &ScriptBuilder<'a>,
-) -> Result<(AST<'a>, ScriptBuf), MiniscriptError<'a>> {
-    let ast = parser::parse(script).map_err(|e| MiniscriptError::ParserError(e))?;
+) -> Result<(ParserContext<'a>, ScriptBuf), MiniscriptError<'a>> {
+    let ctx = parser::parse(script).map_err(|e| MiniscriptError::ParserError(e))?;
 
     // type check the ast
     let _: TypeInfo = type_checker::CorrectnessPropertiesVisitor::new()
-        .visit_ast(&ast)
+        .visit(&ctx)
         .map_err(|e| MiniscriptError::TypeCheckerError(e))?;
 
-    let script_buf = script::build_script(script_builder, &ast)
+    let script_buf = script::build_script(script_builder, &ctx)
         .map_err(|e| MiniscriptError::ScriptBuilderError(e))?;
-    Ok((ast, script_buf))
+    Ok((ctx, script_buf))
 }

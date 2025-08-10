@@ -16,9 +16,9 @@ fn main() {
     let mut ast_printer = ast_printer::ASTPrinter::new();
 
     let script = "or_d(pk(pubkey1),and_v(v:pk(pubkey2),older(52560)))";
-    let (ast, script_buf) = miniscript_rs::parse_script(script, &builder).unwrap();
+    let (ctx, script_buf) = miniscript_rs::parse_script(script, &builder).unwrap();
 
-    println!("ast: {}", ast_printer.print_ast(&ast));
+    println!("ast: {}", ast_printer.print_ast(&ctx));
     println!("script: {:?}", script_buf.to_asm_string());
     let address = Address::p2sh(script_buf.as_script(), NetworkKind::Main).unwrap();
     println!("address: {}", address);
@@ -27,8 +27,8 @@ fn main() {
     // second script
 
     let script = "and_v(v:pk(pubkey1),pk(pubkey2))";
-    let (ast, script_buf) = miniscript_rs::parse_script(script, &builder).unwrap();
-    println!("ast: {}", ast_printer.print_ast(&ast));
+    let (ctx, script_buf) = miniscript_rs::parse_script(script, &builder).unwrap();
+    println!("ast: {}", ast_printer.print_ast(&ctx));
     println!("script: {:?}", script_buf.to_asm_string());
     let address = Address::p2sh(script_buf.as_script(), NetworkKind::Main).unwrap();
     println!("address: {}", address);

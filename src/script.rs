@@ -4,7 +4,7 @@ use bitcoin::{
     script::{Builder, PushBytesBuf},
 };
 
-use crate::parser::{AST, Fragment};
+use crate::parser::{AST, Fragment, ParserContext};
 
 #[derive(Debug)]
 pub struct ScriptBuilder<'a> {
@@ -42,15 +42,16 @@ pub enum ScriptBuilderError<'a> {
 
 pub fn build_script<'a>(
     script_builder: &ScriptBuilder<'a>,
-    ast: &AST<'a>,
+    ctx: &ParserContext<'a>,
 ) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
     let mut builder = Builder::new();
-    builder = build_fragment(script_builder, ast, builder)?;
+    builder = build_fragment(script_builder, ctx, ctx.get_root(), builder)?;
     Ok(builder.into_script())
 }
 
 fn build_fragment<'a>(
     script_builder: &ScriptBuilder<'a>,
+    ctx: &ParserContext<'a>,
     ast: &AST<'a>,
     mut builder: Builder,
 ) -> Result<Builder, ScriptBuilderError<'a>> {
@@ -149,58 +150,58 @@ fn build_fragment<'a>(
             Ok(builder)
         }
         Fragment::AndOr { x, y, z } => {
-            let builder = build_fragment(script_builder, x, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_NOTIF);
-            let builder = build_fragment(script_builder, z, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*z), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_ELSE);
-            let builder = build_fragment(script_builder, y, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*y), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_ENDIF);
             Ok(builder)
         }
         Fragment::AndV { x, y } => {
-            let builder = build_fragment(script_builder, x, builder)?;
-            let builder = build_fragment(script_builder, y, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*y), builder)?;
             Ok(builder)
         }
         Fragment::AndB { x, y } => {
-            let builder = build_fragment(script_builder, x, builder)?;
-            let builder = build_fragment(script_builder, y, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*y), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_BOOLAND);
             Ok(builder)
         }
         Fragment::OrB { x, z } => {
-            let builder = build_fragment(script_builder, x, builder)?;
-            let builder = build_fragment(script_builder, z, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*z), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_BOOLOR);
             Ok(builder)
         }
         Fragment::OrC { x, z } => {
-            let builder = build_fragment(script_builder, x, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_NOTIF);
-            let builder = build_fragment(script_builder, z, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*z), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_ENDIF);
             Ok(builder)
         }
         Fragment::OrD { x, z } => {
-            let builder = build_fragment(script_builder, x, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_IFDUP);
             let builder = builder.push_opcode(opcodes::all::OP_NOTIF);
-            let builder = build_fragment(script_builder, z, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*z), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_ENDIF);
             Ok(builder)
         }
         Fragment::OrI { x, z } => {
             let builder = builder.push_opcode(opcodes::all::OP_IF);
-            let builder = build_fragment(script_builder, x, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_ELSE);
-            let builder = build_fragment(script_builder, z, builder)?;
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*z), builder)?;
             let builder = builder.push_opcode(opcodes::all::OP_ENDIF);
             Ok(builder)
         }
         Fragment::Thresh { k, xs } => {
             let mut builder = builder;
             for x in xs {
-                builder = build_fragment(script_builder, x, builder)?;
+                builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
                 builder = builder.push_opcode(opcodes::all::OP_ADD);
             }
             builder = builder.push_int(*k as i64);
@@ -238,29 +239,29 @@ fn build_fragment<'a>(
         Fragment::Identity { identity_type, x } => match identity_type {
             crate::parser::IdentityType::A => {
                 let builder = builder.push_opcode(opcodes::all::OP_TOALTSTACK);
-                let builder = build_fragment(script_builder, x, builder)?;
+                let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
                 let builder = builder.push_opcode(opcodes::all::OP_FROMALTSTACK);
                 Ok(builder)
             }
             crate::parser::IdentityType::S => {
                 let builder = builder.push_opcode(opcodes::all::OP_SWAP);
-                let builder = build_fragment(script_builder, x, builder)?;
+                let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
                 Ok(builder)
             }
             crate::parser::IdentityType::C => {
-                let builder = build_fragment(script_builder, x, builder)?;
+                let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
                 let builder = builder.push_opcode(opcodes::all::OP_CHECKSIG);
                 Ok(builder)
             }
             crate::parser::IdentityType::D => {
                 let builder = builder.push_opcode(opcodes::all::OP_DUP);
                 let builder = builder.push_opcode(opcodes::all::OP_IF);
-                let builder = build_fragment(script_builder, x, builder)?;
+                let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
                 let builder = builder.push_opcode(opcodes::all::OP_ENDIF);
                 Ok(builder)
             }
             crate::parser::IdentityType::V => {
-                let builder = build_fragment(script_builder, x, builder)?;
+                let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
                 let builder = builder.push_opcode(opcodes::all::OP_VERIFY);
                 Ok(builder)
             }
@@ -269,12 +270,12 @@ fn build_fragment<'a>(
                 let builder = builder.push_int(0);
                 let builder = builder.push_opcode(opcodes::all::OP_0NOTEQUAL);
                 let builder = builder.push_opcode(opcodes::all::OP_IF);
-                let builder = build_fragment(script_builder, x, builder)?;
+                let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
                 let builder = builder.push_opcode(opcodes::all::OP_ENDIF);
                 Ok(builder)
             }
             crate::parser::IdentityType::N => {
-                let builder = build_fragment(script_builder, x, builder)?;
+                let builder = build_fragment(script_builder, ctx, ctx.get_node(*x), builder)?;
                 let builder = builder.push_int(0);
                 let builder = builder.push_opcode(opcodes::all::OP_0NOTEQUAL);
                 Ok(builder)

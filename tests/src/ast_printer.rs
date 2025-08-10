@@ -1,6 +1,6 @@
 // AST Printer
 
-use miniscript_rs::parser::{AST, Fragment};
+use miniscript_rs::parser::{AST, Fragment, ParserContext};
 
 pub struct ASTPrinter {
     indent_level: usize,
@@ -15,13 +15,13 @@ impl ASTPrinter {
         }
     }
 
-    pub fn print_ast(&mut self, ast: &AST) -> String {
+    pub fn print_ast(&mut self, ctx: &ParserContext) -> String {
         self.output.clear();
-        self.print_node(ast);
+        self.print_node(ctx, ctx.get_root());
         self.output.clone()
     }
 
-    fn print_node(&mut self, ast: &AST) {
+    fn print_node(&mut self, ctx: &ParserContext, ast: &AST) {
         self.write_indent();
         match &ast.fragment {
             Fragment::False => {
@@ -57,9 +57,9 @@ impl ASTPrinter {
             Fragment::AndOr { x, y, z } => {
                 self.output.push_str("AndOr(\n");
                 self.indent();
-                self.print_node(x);
-                self.print_node(y);
-                self.print_node(z);
+                self.print_node(ctx, ctx.get_node(*x));
+                self.print_node(ctx, ctx.get_node(*y));
+                self.print_node(ctx, ctx.get_node(*z));
                 self.dedent();
                 self.write_indent();
                 self.output.push_str(")\n");
@@ -67,8 +67,8 @@ impl ASTPrinter {
             Fragment::AndV { x, y } => {
                 self.output.push_str("AndV(\n");
                 self.indent();
-                self.print_node(x);
-                self.print_node(y);
+                self.print_node(ctx, ctx.get_node(*x));
+                self.print_node(ctx, ctx.get_node(*y));
                 self.dedent();
                 self.write_indent();
                 self.output.push_str(")\n");
@@ -76,8 +76,8 @@ impl ASTPrinter {
             Fragment::AndB { x, y } => {
                 self.output.push_str("AndB(\n");
                 self.indent();
-                self.print_node(x);
-                self.print_node(y);
+                self.print_node(ctx, ctx.get_node(*x));
+                self.print_node(ctx, ctx.get_node(*y));
                 self.dedent();
                 self.write_indent();
                 self.output.push_str(")\n");
@@ -94,8 +94,8 @@ impl ASTPrinter {
             Fragment::OrB { x, z } => {
                 self.output.push_str("OrB(\n");
                 self.indent();
-                self.print_node(x);
-                self.print_node(z);
+                self.print_node(ctx, ctx.get_node(*x));
+                self.print_node(ctx, ctx.get_node(*z));
                 self.dedent();
                 self.write_indent();
                 self.output.push_str(")\n");
@@ -103,8 +103,8 @@ impl ASTPrinter {
             Fragment::OrC { x, z } => {
                 self.output.push_str("OrC(\n");
                 self.indent();
-                self.print_node(x);
-                self.print_node(z);
+                self.print_node(ctx, ctx.get_node(*x));
+                self.print_node(ctx, ctx.get_node(*z));
                 self.dedent();
                 self.write_indent();
                 self.output.push_str(")\n");
@@ -112,8 +112,8 @@ impl ASTPrinter {
             Fragment::OrD { x, z } => {
                 self.output.push_str("OrD(\n");
                 self.indent();
-                self.print_node(x);
-                self.print_node(z);
+                self.print_node(ctx, ctx.get_node(*x));
+                self.print_node(ctx, ctx.get_node(*z));
                 self.dedent();
                 self.write_indent();
                 self.output.push_str(")\n");
@@ -121,8 +121,8 @@ impl ASTPrinter {
             Fragment::OrI { x, z } => {
                 self.output.push_str("OrI(\n");
                 self.indent();
-                self.print_node(x);
-                self.print_node(z);
+                self.print_node(ctx, ctx.get_node(*x));
+                self.print_node(ctx, ctx.get_node(*z));
                 self.dedent();
                 self.write_indent();
                 self.output.push_str(")\n");
@@ -131,7 +131,7 @@ impl ASTPrinter {
                 self.output.push_str(&format!("Thresh(k={}, [\n", k));
                 self.indent();
                 for x in xs {
-                    self.print_node(x);
+                    self.print_node(ctx, ctx.get_node(*x));
                 }
                 self.dedent();
                 self.write_indent();
@@ -149,7 +149,7 @@ impl ASTPrinter {
                 self.output
                     .push_str(&format!("Identity-{:?}(\n", identity_type));
                 self.indent();
-                self.print_node(x);
+                self.print_node(ctx, ctx.get_node(*x));
                 self.dedent();
                 self.write_indent();
                 self.output.push_str(")\n");

@@ -1,12 +1,24 @@
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use core::fmt::Debug;
 
 // AST Visitor
 
-pub trait ASTVisitor<T> {
+pub trait ASTVisitor<'a, T> {
     type Error;
 
-    fn visit_ast(&mut self, node: &AST) -> Result<T, Self::Error>;
+    fn visit_ast(&mut self, ctx: &ParserContext<'a>, node: &AST<'a>) -> Result<T, Self::Error>;
+
+    fn visit_ast_by_index(
+        &mut self,
+        ctx: &ParserContext<'a>,
+        index: NodeIndex,
+    ) -> Result<T, Self::Error> {
+        self.visit_ast(ctx, &ctx.nodes[index as usize])
+    }
+
+    fn visit(&mut self, ctx: &ParserContext<'a>) -> Result<T, Self::Error> {
+        self.visit_ast(ctx, &ctx.nodes[0])
+    }
 }
 
 // Position
@@ -19,6 +31,8 @@ pub struct AST<'a> {
     pub position: Position,
     pub fragment: Fragment<'a>,
 }
+
+pub type NodeIndex = u16;
 
 #[derive(Debug)]
 pub enum Fragment<'a> {
@@ -53,29 +67,29 @@ pub enum Fragment<'a> {
     // Logical Fragments
     /// andor(X,Y,Z)
     AndOr {
-        x: Box<AST<'a>>,
-        y: Box<AST<'a>>,
-        z: Box<AST<'a>>,
+        x: NodeIndex,
+        y: NodeIndex,
+        z: NodeIndex,
     },
     /// and_v(X,Y)
-    AndV { x: Box<AST<'a>>, y: Box<AST<'a>> },
+    AndV { x: NodeIndex, y: NodeIndex },
     /// and_b(X,Y)
-    AndB { x: Box<AST<'a>>, y: Box<AST<'a>> },
+    AndB { x: NodeIndex, y: NodeIndex },
 
     // /// and_n(X,Y) = andor(X,Y,0)
     // AndN { x: Box<AST>, y: Box<AST> },
     /// or_b(X,Z)
-    OrB { x: Box<AST<'a>>, z: Box<AST<'a>> },
+    OrB { x: NodeIndex, z: NodeIndex },
     /// or_c(X,Z)
-    OrC { x: Box<AST<'a>>, z: Box<AST<'a>> },
+    OrC { x: NodeIndex, z: NodeIndex },
     /// or_d(X,Z)
-    OrD { x: Box<AST<'a>>, z: Box<AST<'a>> },
+    OrD { x: NodeIndex, z: NodeIndex },
     /// or_i(X,Z)
-    OrI { x: Box<AST<'a>>, z: Box<AST<'a>> },
+    OrI { x: NodeIndex, z: NodeIndex },
 
     // Threshold Fragments
     /// thresh(k,X1,...,Xn)
-    Thresh { k: i32, xs: Vec<Box<AST<'a>>> },
+    Thresh { k: i32, xs: Vec<NodeIndex> },
     ///  multi(k,key1,...,keyn)
     /// (P2WSH only)
     Multi { k: i32, keys: Vec<&'a str> },
@@ -85,7 +99,7 @@ pub enum Fragment<'a> {
 
     Identity {
         identity_type: IdentityType,
-        x: Box<AST<'a>>,
+        x: NodeIndex,
     },
 }
 
@@ -150,18 +164,23 @@ pub enum ParseError<'a> {
     },
 }
 
-struct Context<'a> {
+pub struct ParserContext<'a> {
     tokens: Vec<(&'a str, usize)>,
     current_token: usize,
+    nodes: Vec<AST<'a>>,
+
+    root: Option<AST<'a>>,
 }
 
-impl<'a> Context<'a> {
+impl<'a> ParserContext<'a> {
     fn new(input: &'a str) -> Self {
         let tokens =
             split_string_with_columns(input, |c| c == '(' || c == ')' || c == ',' || c == ':');
         Self {
             tokens,
             current_token: 0,
+            nodes: Vec::new(),
+            root: None,
         }
     }
 
@@ -204,14 +223,34 @@ impl<'a> Context<'a> {
             None
         }
     }
+
+    fn add_node(&mut self, ast: AST<'a>) -> NodeIndex {
+        let index = self.nodes.len() as NodeIndex;
+        self.nodes.push(ast);
+        index
+    }
+
+    #[inline]
+    pub fn get_node(&self, index: NodeIndex) -> &AST<'a> {
+        &self.nodes[index as usize]
+    }
+
+    #[inline]
+    pub fn get_root(&self) -> &AST<'a> {
+        self.root.as_ref().unwrap()
+    }
 }
 
-pub fn parse<'a>(input: &'a str) -> Result<AST<'a>, ParseError<'a>> {
-    let mut ctx = Context::new(input);
-    parse_internal(&mut ctx)
+pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
+    let mut ctx = ParserContext::new(input);
+
+    let root = parse_internal(&mut ctx)?;
+    ctx.root = Some(root);
+
+    Ok(ctx)
 }
 
-fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> {
+fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError<'a>> {
     let (token, column) = ctx
         .peek_token()
         .ok_or(ParseError::UnexpectedEof { context: "parse" })?;
@@ -280,7 +319,7 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
                 position: column,
                 fragment: Fragment::Identity {
                     identity_type: IdentityType::C,
-                    x: Box::new(ast),
+                    x: ctx.add_node(ast),
                 },
             };
             Ok(ast)
@@ -306,7 +345,7 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
                 position: column,
                 fragment: Fragment::Identity {
                     identity_type: IdentityType::C,
-                    x: Box::new(ast),
+                    x: ctx.add_node(ast),
                 },
             };
             Ok(ast)
@@ -428,9 +467,9 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
             Ok(AST {
                 position: column,
                 fragment: Fragment::AndOr {
-                    x: Box::new(x),
-                    y: Box::new(y),
-                    z: Box::new(z),
+                    x: ctx.add_node(x),
+                    y: ctx.add_node(y),
+                    z: ctx.add_node(z),
                 },
             })
         }
@@ -446,8 +485,8 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
             Ok(AST {
                 position: column,
                 fragment: Fragment::AndV {
-                    x: Box::new(x),
-                    y: Box::new(y),
+                    x: ctx.add_node(x),
+                    y: ctx.add_node(y),
                 },
             })
         }
@@ -463,8 +502,8 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
             Ok(AST {
                 position: column,
                 fragment: Fragment::AndB {
-                    x: Box::new(x),
-                    y: Box::new(y),
+                    x: ctx.add_node(x),
+                    y: ctx.add_node(y),
                 },
             })
         }
@@ -482,9 +521,9 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
             let ast = AST {
                 position: column,
                 fragment: Fragment::AndOr {
-                    x: Box::new(x),
-                    y: Box::new(y),
-                    z: Box::new(AST {
+                    x: ctx.add_node(x),
+                    y: ctx.add_node(y),
+                    z: ctx.add_node(AST {
                         position: column,
                         fragment: Fragment::False,
                     }),
@@ -504,8 +543,8 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
             Ok(AST {
                 position: column,
                 fragment: Fragment::OrB {
-                    x: Box::new(x),
-                    z: Box::new(z),
+                    x: ctx.add_node(x),
+                    z: ctx.add_node(z),
                 },
             })
         }
@@ -521,8 +560,8 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
             Ok(AST {
                 position: column,
                 fragment: Fragment::OrC {
-                    x: Box::new(x),
-                    z: Box::new(z),
+                    x: ctx.add_node(x),
+                    z: ctx.add_node(z),
                 },
             })
         }
@@ -538,8 +577,8 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
             Ok(AST {
                 position: column,
                 fragment: Fragment::OrD {
-                    x: Box::new(x),
-                    z: Box::new(z),
+                    x: ctx.add_node(x),
+                    z: ctx.add_node(z),
                 },
             })
         }
@@ -555,8 +594,8 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
             Ok(AST {
                 position: column,
                 fragment: Fragment::OrI {
-                    x: Box::new(x),
-                    z: Box::new(z),
+                    x: ctx.add_node(x),
+                    z: ctx.add_node(z),
                 },
             })
         }
@@ -582,7 +621,7 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
                     ctx.next_token();
                 }
                 let x = parse_internal(ctx)?;
-                xs.push(Box::new(x));
+                xs.push(ctx.add_node(x));
             }
 
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
@@ -696,7 +735,7 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
                                 position: column,
                                 fragment: Fragment::Identity {
                                     identity_type,
-                                    x: Box::new(node),
+                                    x: ctx.add_node(node),
                                 },
                             }
                         } else if id_type == 't' {
@@ -704,8 +743,8 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
                             node = AST {
                                 position: column,
                                 fragment: Fragment::AndV {
-                                    x: Box::new(node),
-                                    y: Box::new(AST {
+                                    x: ctx.add_node(node),
+                                    y: ctx.add_node(AST {
                                         position: column,
                                         fragment: Fragment::True,
                                     }),
@@ -716,11 +755,11 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
                             node = AST {
                                 position: column,
                                 fragment: Fragment::OrI {
-                                    x: Box::new(AST {
+                                    x: ctx.add_node(AST {
                                         position: column,
                                         fragment: Fragment::False,
                                     }),
-                                    z: Box::new(node),
+                                    z: ctx.add_node(node),
                                 },
                             }
                         } else if id_type == 'u' {
@@ -728,8 +767,8 @@ fn parse_internal<'a>(ctx: &mut Context<'a>) -> Result<AST<'a>, ParseError<'a>> 
                             node = AST {
                                 position: column,
                                 fragment: Fragment::OrI {
-                                    x: Box::new(node),
-                                    z: Box::new(AST {
+                                    x: ctx.add_node(node),
+                                    z: ctx.add_node(AST {
                                         position: column,
                                         fragment: Fragment::False,
                                     }),
