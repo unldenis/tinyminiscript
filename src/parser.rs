@@ -8,6 +8,7 @@ pub trait ASTVisitor<'a, T> {
 
     fn visit_ast(&mut self, ctx: &ParserContext<'a>, node: &AST<'a>) -> Result<T, Self::Error>;
 
+    #[inline]
     fn visit_ast_by_index(
         &mut self,
         ctx: &ParserContext<'a>,
@@ -16,8 +17,9 @@ pub trait ASTVisitor<'a, T> {
         self.visit_ast(ctx, &ctx.nodes[index as usize])
     }
 
+    #[inline]
     fn visit(&mut self, ctx: &ParserContext<'a>) -> Result<T, Self::Error> {
-        self.visit_ast(ctx, &ctx.nodes[0])
+        self.visit_ast(ctx, &ctx.get_root())
     }
 }
 
@@ -115,6 +117,7 @@ pub enum IdentityType {
 }
 
 // Optimized tokenization using string slices instead of owned strings
+#[inline]
 fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec<(&'a str, usize)>
 where
     F: Fn(char) -> bool,
@@ -160,7 +163,7 @@ pub enum ParseError<'a> {
     },
     UnexpectedToken {
         expected: &'static str,
-        found: (&'a str, usize),
+        found: (&'a str, Position),
     },
 }
 
@@ -173,6 +176,7 @@ pub struct ParserContext<'a> {
 }
 
 impl<'a> ParserContext<'a> {
+    #[inline]
     fn new(input: &'a str) -> Self {
         let tokens =
             split_string_with_columns(input, |c| c == '(' || c == ')' || c == ',' || c == ':');
@@ -185,6 +189,7 @@ impl<'a> ParserContext<'a> {
     }
 
     // return the next token
+    #[inline]
     fn next_token(&mut self) -> Option<(&'a str, usize)> {
         if self.current_token < self.tokens.len() {
             let token = self.tokens[self.current_token];
@@ -195,6 +200,7 @@ impl<'a> ParserContext<'a> {
         }
     }
 
+    #[inline]
     fn peek_token(&self) -> Option<(&'a str, usize)> {
         if self.current_token < self.tokens.len() {
             Some(self.tokens[self.current_token])
@@ -203,6 +209,7 @@ impl<'a> ParserContext<'a> {
         }
     }
 
+    #[inline]
     fn expect_token(&mut self, expected: &'static str) -> Result<(&'a str, usize), ParseError<'a>> {
         let (token, column) = self.next_token().ok_or(ParseError::UnexpectedEof {
             context: "expect_token",
@@ -216,6 +223,7 @@ impl<'a> ParserContext<'a> {
         Ok((token, column))
     }
 
+    #[inline]
     fn peek_next_token(&self) -> Option<(&'a str, usize)> {
         if self.current_token + 1 < self.tokens.len() {
             Some(self.tokens[self.current_token + 1])
@@ -224,6 +232,7 @@ impl<'a> ParserContext<'a> {
         }
     }
 
+    #[inline]
     fn add_node(&mut self, ast: AST<'a>) -> NodeIndex {
         let index = self.nodes.len() as NodeIndex;
         self.nodes.push(ast);
@@ -241,6 +250,7 @@ impl<'a> ParserContext<'a> {
     }
 }
 
+#[inline]
 pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
     let mut ctx = ParserContext::new(input);
 

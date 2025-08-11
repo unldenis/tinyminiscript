@@ -4,7 +4,7 @@ use bitcoin::{
     script::{Builder, PushBytesBuf},
 };
 
-use crate::parser::{AST, Fragment, ParserContext};
+use crate::parser::{AST, Fragment, ParserContext, Position};
 
 #[derive(Debug)]
 pub struct ScriptBuilder<'a> {
@@ -13,22 +13,27 @@ pub struct ScriptBuilder<'a> {
 }
 
 impl<'a> Default for ScriptBuilder<'a> {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
 impl<'a> ScriptBuilder<'a> {
+    #[inline]
     pub fn new() -> Self {
         Self {
             keys: BTreeMap::new(),
             hashes: BTreeMap::new(),
         }
     }
+
+    #[inline]
     pub fn add_key(&mut self, key: &'a str, public_key: PublicKey) {
         self.keys.insert(key, public_key);
     }
 
+    #[inline]
     pub fn add_hash(&mut self, hash: &'a str, data: PushBytesBuf) {
         self.hashes.insert(hash, data);
     }
@@ -36,10 +41,11 @@ impl<'a> ScriptBuilder<'a> {
 
 #[derive(Debug)]
 pub enum ScriptBuilderError<'a> {
-    KeyNotFound { key: &'a str },
-    HashNotFound { hash: &'a str },
+    KeyNotFound { position: Position, key: &'a str },
+    HashNotFound { position: Position, hash: &'a str },
 }
 
+#[inline]
 pub fn build_script<'a>(
     script_builder: &ScriptBuilder<'a>,
     ctx: &ParserContext<'a>,
@@ -65,18 +71,26 @@ fn build_fragment<'a>(
             Ok(builder)
         }
         Fragment::PkK { key } => {
-            let public_key = script_builder
-                .keys
-                .get(key)
-                .ok_or(ScriptBuilderError::KeyNotFound { key })?;
+            let public_key =
+                script_builder
+                    .keys
+                    .get(key)
+                    .ok_or(ScriptBuilderError::KeyNotFound {
+                        position: ast.position,
+                        key,
+                    })?;
             builder = builder.push_key(public_key);
             Ok(builder)
         }
         Fragment::PkH { key } => {
-            let public_key = script_builder
-                .keys
-                .get(key)
-                .ok_or(ScriptBuilderError::KeyNotFound { key })?;
+            let public_key =
+                script_builder
+                    .keys
+                    .get(key)
+                    .ok_or(ScriptBuilderError::KeyNotFound {
+                        position: ast.position,
+                        key,
+                    })?;
             builder = builder
                 .push_opcode(opcodes::all::OP_DUP)
                 .push_opcode(opcodes::all::OP_HASH160)
@@ -96,7 +110,10 @@ fn build_fragment<'a>(
             let hash = script_builder
                 .hashes
                 .get(h)
-                .ok_or(ScriptBuilderError::HashNotFound { hash: h })?;
+                .ok_or(ScriptBuilderError::HashNotFound {
+                    position: ast.position,
+                    hash: h,
+                })?;
 
             builder = builder
                 .push_opcode(opcodes::all::OP_SIZE)
@@ -111,7 +128,10 @@ fn build_fragment<'a>(
             let hash = script_builder
                 .hashes
                 .get(h)
-                .ok_or(ScriptBuilderError::HashNotFound { hash: h })?;
+                .ok_or(ScriptBuilderError::HashNotFound {
+                    position: ast.position,
+                    hash: h,
+                })?;
             builder = builder
                 .push_opcode(opcodes::all::OP_SIZE)
                 .push_int(32)
@@ -125,7 +145,10 @@ fn build_fragment<'a>(
             let hash = script_builder
                 .hashes
                 .get(h)
-                .ok_or(ScriptBuilderError::HashNotFound { hash: h })?;
+                .ok_or(ScriptBuilderError::HashNotFound {
+                    position: ast.position,
+                    hash: h,
+                })?;
             builder = builder
                 .push_opcode(opcodes::all::OP_SIZE)
                 .push_int(32)
@@ -139,7 +162,10 @@ fn build_fragment<'a>(
             let hash = script_builder
                 .hashes
                 .get(h)
-                .ok_or(ScriptBuilderError::HashNotFound { hash: h })?;
+                .ok_or(ScriptBuilderError::HashNotFound {
+                    position: ast.position,
+                    hash: h,
+                })?;
             builder = builder
                 .push_opcode(opcodes::all::OP_SIZE)
                 .push_int(32)
@@ -211,10 +237,14 @@ fn build_fragment<'a>(
         Fragment::Multi { k, keys } => {
             let mut builder = builder.push_int(*k as i64);
             for key in keys {
-                let public_key = script_builder
-                    .keys
-                    .get(key)
-                    .ok_or(ScriptBuilderError::KeyNotFound { key })?;
+                let public_key =
+                    script_builder
+                        .keys
+                        .get(key)
+                        .ok_or(ScriptBuilderError::KeyNotFound {
+                            position: ast.position,
+                            key,
+                        })?;
                 builder = builder.push_key(public_key);
             }
             builder = builder.push_int(keys.len() as i64);
@@ -224,10 +254,14 @@ fn build_fragment<'a>(
         Fragment::MultiA { k, keys } => {
             let mut builder = builder;
             for key in keys {
-                let public_key = script_builder
-                    .keys
-                    .get(key)
-                    .ok_or(ScriptBuilderError::KeyNotFound { key })?;
+                let public_key =
+                    script_builder
+                        .keys
+                        .get(key)
+                        .ok_or(ScriptBuilderError::KeyNotFound {
+                            position: ast.position,
+                            key,
+                        })?;
                 builder = builder.push_key(public_key);
                 builder = builder.push_opcode(opcodes::all::OP_CHECKSIG);
                 builder = builder.push_opcode(opcodes::all::OP_ADD);

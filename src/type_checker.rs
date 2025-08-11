@@ -2,7 +2,7 @@ use alloc::format;
 use alloc::string::String;
 use core::fmt::Debug;
 
-use crate::parser::{AST, ASTVisitor, Fragment, IdentityType, ParserContext};
+use crate::parser::{AST, ASTVisitor, Fragment, IdentityType, ParserContext, Position};
 
 // Miniscript Types as bit flags
 
@@ -30,26 +30,31 @@ pub struct TypeInfo {
 }
 
 impl TypeInfo {
-    pub fn new(base_type: u8, properties: u8) -> Self {
+    #[inline]
+    pub const fn new(base_type: u8, properties: u8) -> Self {
         Self {
             base_type,
             properties,
         }
     }
 
-    pub fn base_type(&self) -> u8 {
+    #[inline]
+    pub const fn base_type(&self) -> u8 {
         self.base_type
     }
 
-    pub fn properties(&self) -> u8 {
+    #[inline]
+    pub const fn properties(&self) -> u8 {
         self.properties
     }
 
-    pub fn has_property(&self, property: u8) -> bool {
+    #[inline]
+    pub const fn has_property(&self, property: u8) -> bool {
         (self.properties & property) != 0
     }
 
-    pub fn has_properties(&self, properties: u8) -> bool {
+    #[inline]
+    pub const fn has_properties(&self, properties: u8) -> bool {
         (self.properties & properties) == properties
     }
 }
@@ -59,16 +64,17 @@ impl TypeInfo {
 pub struct CorrectnessPropertiesVisitor {}
 
 impl CorrectnessPropertiesVisitor {
-    pub fn new() -> Self {
+    #[inline]
+    pub const fn new() -> Self {
         Self {}
     }
 }
 
 #[derive(Debug)]
 pub enum CorrectnessPropertiesVisitorError {
-    UnexpectedType { reason: String },
-    InvalidThreshold { k: i32 },
-    EmptyThreshold,
+    UnexpectedType { position: Position, reason: String },
+    InvalidThreshold { position: Position, k: i32 },
+    EmptyThreshold { position: Position },
 }
 
 impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
@@ -126,6 +132,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "andor(X,Y,Z): X must be type B (Base), but got type {:?}",
                             x_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -135,6 +142,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "andor(X,Y,Z): X must have property 'du', but got properties {:?}",
                             x_type.properties()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -145,6 +153,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             y_type.base_type(),
                             z_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -157,6 +166,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "andor(X,Y,Z): Y must be type B (Base), K (Key), or V (Verify), but got type {:?}",
                             y_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -198,6 +208,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "and_v(X,Y): X must be type V (Verify), but got type {:?}",
                             x_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -210,6 +221,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "and_v(X,Y): Y must be type B (Base), K (Key), or V (Verify), but got type {:?}",
                             y_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -246,6 +258,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "and_b(X,Y): X must be type B (Base), but got type {:?}",
                             x_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -255,6 +268,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "and_b(X,Y): Y must be type W (Wrapped), but got type {:?}",
                             y_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -295,6 +309,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_b(X,Z): X must be type B (Base), but got type {:?}",
                             x_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -304,6 +319,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_b(X,Z): X must have property D (Data), but got properties {:?}",
                             x_type.properties()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -313,6 +329,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_b(X,Z): Z must be type W (Wrapped), but got type {:?}",
                             z_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -322,6 +339,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_b(X,Z): Z must have property D (Data), but got properties {:?}",
                             z_type.properties()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -353,6 +371,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_c(X,Z): X must be type B (Base), but got type {:?}",
                             x_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -362,6 +381,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_c(X,Z): X must have properties D (Data) and U (Unknown), but got properties {:?}",
                             x_type.properties()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -371,6 +391,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_c(X,Z): Z must be type V (Verify), but got type {:?}",
                             z_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -397,6 +418,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_d(X,Z): X must be type B (Base), but got type {:?}",
                             x_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -406,6 +428,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_d(X,Z): X must have properties D (Data) and U (Unknown), but got properties {:?}",
                             x_type.properties()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -415,6 +438,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_d(X,Z): Z must be type B (Base), but got type {:?}",
                             z_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -450,6 +474,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             x_type.base_type(),
                             z_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -462,6 +487,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             "or_i(X,Z): X must be type B (Base), K (Key), or V (Verify), but got type {:?}",
                             x_type.base_type()
                         ),
+                        position: node.position,
                     });
                 }
 
@@ -485,15 +511,23 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 // 1 ≤ k ≤ n; X1 is Bdu; others are Wdu
                 let k = *k;
                 if k < 1 {
-                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold { k });
+                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold {
+                        position: node.position,
+                        k,
+                    });
                 }
 
                 if xs.len() < k as usize {
-                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold { k });
+                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold {
+                        position: node.position,
+                        k,
+                    });
                 }
 
                 if xs.is_empty() {
-                    return Err(CorrectnessPropertiesVisitorError::EmptyThreshold);
+                    return Err(CorrectnessPropertiesVisitorError::EmptyThreshold {
+                        position: node.position,
+                    });
                 }
 
                 let mut first_type = true;
@@ -508,6 +542,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     "thresh(k,X1,...,Xn): X1 must be type B (Base), but got type {:?}",
                                     x_type.base_type()
                                 ),
+                                position: node.position,
                             });
                         }
 
@@ -518,6 +553,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     i,
                                     x_type.properties()
                                 ),
+                                position: node.position,
                             });
                         }
                     } else {
@@ -528,6 +564,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     i,
                                     x_type.base_type()
                                 ),
+                                position: node.position,
                             });
                         }
 
@@ -538,6 +575,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     i,
                                     x_type.properties()
                                 ),
+                                position: node.position,
                             });
                         }
                     }
@@ -571,15 +609,23 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 // 1 ≤ k ≤ n
                 let k = *k;
                 if k < 1 {
-                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold { k });
+                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold {
+                        position: node.position,
+                        k,
+                    });
                 }
 
                 if keys.len() < k as usize {
-                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold { k });
+                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold {
+                        position: node.position,
+                        k,
+                    });
                 }
 
                 if keys.is_empty() {
-                    return Err(CorrectnessPropertiesVisitorError::EmptyThreshold);
+                    return Err(CorrectnessPropertiesVisitorError::EmptyThreshold {
+                        position: node.position,
+                    });
                 }
 
                 Ok(TypeInfo::new(
@@ -591,15 +637,23 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 // 1 ≤ k ≤ n
                 let k = *k;
                 if k < 1 {
-                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold { k });
+                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold {
+                        position: node.position,
+                        k,
+                    });
                 }
 
                 if keys.len() < k as usize {
-                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold { k });
+                    return Err(CorrectnessPropertiesVisitorError::InvalidThreshold {
+                        position: node.position,
+                        k,
+                    });
                 }
 
                 if keys.is_empty() {
-                    return Err(CorrectnessPropertiesVisitorError::EmptyThreshold);
+                    return Err(CorrectnessPropertiesVisitorError::EmptyThreshold {
+                        position: node.position,
+                    });
                 }
 
                 Ok(TypeInfo::new(MINISCRIPT_TYPE_B, PROPERTY_D | PROPERTY_U))
@@ -616,6 +670,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     "a:X: X must be type B (Base), but got type {:?}",
                                     x_type.base_type()
                                 ),
+                                position: node.position,
                             });
                         }
 
@@ -637,6 +692,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     "s:X: X must be type B (Base), but got type {:?}",
                                     x_type.base_type()
                                 ),
+                                position: node.position,
                             });
                         }
 
@@ -658,6 +714,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     "c:X: X must be type K (Key), but got type {:?}",
                                     x_type.base_type()
                                 ),
+                                position: node.position,
                             });
                         }
 
@@ -684,6 +741,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     "d:X: X must be type V (Verify), but got type {:?}",
                                     x_type.base_type()
                                 ),
+                                position: node.position,
                             });
                         }
 
@@ -705,6 +763,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     "v:X: X must be type B (Base), but got type {:?}",
                                     x_type.base_type()
                                 ),
+                                position: node.position,
                             });
                         }
 
@@ -730,6 +789,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     "j:X: X must be type B (Base), but got type {:?}",
                                     x_type.base_type()
                                 ),
+                                position: node.position,
                             });
                         }
 
@@ -755,6 +815,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                                     "n:X: X must be type B (Base), but got type {:?}",
                                     x_type.base_type()
                                 ),
+                                position: node.position,
                             });
                         }
 

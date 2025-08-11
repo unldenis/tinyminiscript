@@ -1,8 +1,9 @@
 mod ast_printer;
 
-use std::str::FromStr;
+use std::{process::exit, str::FromStr};
 
 use bitcoin::{Address, NetworkKind, PublicKey, params::Params};
+use miniscript_rs::parser;
 
 fn main() {
     let pubkey1 =
@@ -27,6 +28,16 @@ fn main() {
     // second script
 
     let script = "and_v(v:pk(pubkey1),pk(pubkey2))";
+    let (ctx, script_buf) = miniscript_rs::parse_script(script, &builder).unwrap();
+    println!("ast: {}", ast_printer.print_ast(&ctx));
+    println!("script: {:?}", script_buf.to_asm_string());
+    let address = Address::p2sh(script_buf.as_script(), NetworkKind::Main).unwrap();
+    println!("address: {}", address);
+
+    println!("--------------------------------");
+    // third script (error)
+
+    let script = "and_v(pk(pubkey1),pk(pubkey2))";
     let (ctx, script_buf) = miniscript_rs::parse_script(script, &builder).unwrap();
     println!("ast: {}", ast_printer.print_ast(&ctx));
     println!("script: {:?}", script_buf.to_asm_string());
