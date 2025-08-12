@@ -1,6 +1,8 @@
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
+use crate::descriptor::Descriptor;
+
 // AST Visitor
 
 pub trait ASTVisitor<'a, T> {
@@ -103,6 +105,12 @@ pub enum Fragment<'a> {
         identity_type: IdentityType,
         x: NodeIndex,
     },
+
+    // Descriptor Fragments
+    Descriptor {
+        descriptor: Descriptor,
+        inner: NodeIndex,
+    },
 }
 
 #[derive(Debug)]
@@ -173,6 +181,7 @@ pub struct ParserContext<'a> {
     nodes: Vec<AST<'a>>,
 
     root: Option<AST<'a>>,
+    pub top_level_descriptor: Option<Descriptor>,
 }
 
 impl<'a> ParserContext<'a> {
@@ -185,6 +194,7 @@ impl<'a> ParserContext<'a> {
             current_token: 0,
             nodes: Vec::new(),
             root: None,
+            top_level_descriptor: None,
         }
     }
 
@@ -233,6 +243,20 @@ impl<'a> ParserContext<'a> {
     }
 
     #[inline]
+    fn check_next_tokens(&self, tokens: &[&'a str]) -> bool {
+        if self.current_token + tokens.len() > self.tokens.len() {
+            return false;
+        }
+
+        for (i, token) in tokens.iter().enumerate() {
+            if self.tokens[self.current_token + i].0 != *token {
+                return false;
+            }
+        }
+        true
+    }
+
+    #[inline]
     fn add_node(&mut self, ast: AST<'a>) -> NodeIndex {
         let index = self.nodes.len() as NodeIndex;
         self.nodes.push(ast);
@@ -254,10 +278,62 @@ impl<'a> ParserContext<'a> {
 pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
     let mut ctx = ParserContext::new(input);
 
-    let root = parse_internal(&mut ctx)?;
+    let root = parse_descriptor(&mut ctx)?;
     ctx.root = Some(root);
 
     Ok(ctx)
+}
+
+fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError<'a>> {
+    let (token, column) = ctx.next_token().ok_or(ParseError::UnexpectedEof {
+        context: "parse_descriptor",
+    })?;
+
+    let descriptor = Descriptor::from_fragment(token);
+
+    if ctx.top_level_descriptor.is_none() {
+        ctx.top_level_descriptor = Some(descriptor.clone());
+    }
+
+    // For sh descriptors, we need to check what's inside
+    if descriptor == Descriptor::Sh
+        && (ctx.check_next_tokens(&["(", "wsh"]) || ctx.check_next_tokens(&["(", "wpkh"]))
+    {
+        return parse_sh_descriptor(ctx, (token, column));
+    }
+
+    // Standard descriptor parsing
+    let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+    let inner = parse_internal(ctx)?;
+    let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+
+    Ok(AST {
+        position: column,
+        fragment: Fragment::Descriptor {
+            descriptor,
+            inner: ctx.add_node(inner),
+        },
+    })
+}
+
+fn parse_sh_descriptor<'a>(
+    ctx: &mut ParserContext<'a>,
+    sh: (&'a str, usize),
+) -> Result<AST<'a>, ParseError<'a>> {
+    let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+
+    // Parse the inner descriptor directly
+    let inner = parse_descriptor(ctx)?;
+
+    let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+
+    Ok(AST {
+        position: sh.1,
+        fragment: Fragment::Descriptor {
+            descriptor: Descriptor::Sh,
+            inner: ctx.add_node(inner),
+        },
+    })
 }
 
 fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError<'a>> {

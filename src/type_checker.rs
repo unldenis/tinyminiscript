@@ -840,6 +840,13 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     }
                 }
             }
+            Fragment::Descriptor {
+                descriptor: _,
+                inner,
+            } => {
+                let inner_type = self.visit_ast_by_index(ctx, *inner)?;
+                Ok(inner_type)
+            }
         }
     }
 }

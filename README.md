@@ -14,4 +14,4 @@ This will show you the breakdown of all miniscript-related functions and their i
 
 | Architecture | Size    |
 | ------------ | ------- |
-| x86_64       | 27.7 KB |
+| x86_64       | 33.0 KB |

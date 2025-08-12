@@ -154,6 +154,15 @@ impl ASTPrinter {
                 self.write_indent();
                 self.output.push_str(")\n");
             }
+            Fragment::Descriptor { descriptor, inner } => {
+                self.output
+                    .push_str(&format!("Descriptor({:?}, \n", descriptor));
+                self.indent();
+                self.print_node(ctx, ctx.get_node(*inner));
+                self.dedent();
+                self.write_indent();
+                self.output.push_str(")\n");
+            }
         }
     }
 

@@ -1,43 +1,9 @@
-use alloc::collections::BTreeMap;
-use bitcoin::{
-    PublicKey, ScriptBuf, opcodes,
-    script::{Builder, PushBytesBuf},
+use bitcoin::{ScriptBuf, opcodes, script::Builder};
+
+use crate::{
+    model::KeyRegistry,
+    parser::{AST, Fragment, ParserContext, Position},
 };
-
-use crate::parser::{AST, Fragment, ParserContext, Position};
-
-#[derive(Debug)]
-pub struct ScriptBuilder<'a> {
-    keys: BTreeMap<&'a str, PublicKey>,
-    hashes: BTreeMap<&'a str, PushBytesBuf>,
-}
-
-impl<'a> Default for ScriptBuilder<'a> {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<'a> ScriptBuilder<'a> {
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            keys: BTreeMap::new(),
-            hashes: BTreeMap::new(),
-        }
-    }
-
-    #[inline]
-    pub fn add_key(&mut self, key: &'a str, public_key: PublicKey) {
-        self.keys.insert(key, public_key);
-    }
-
-    #[inline]
-    pub fn add_hash(&mut self, hash: &'a str, data: PushBytesBuf) {
-        self.hashes.insert(hash, data);
-    }
-}
 
 #[derive(Debug)]
 pub enum ScriptBuilderError<'a> {
@@ -47,7 +13,7 @@ pub enum ScriptBuilderError<'a> {
 
 #[inline]
 pub fn build_script<'a>(
-    script_builder: &ScriptBuilder<'a>,
+    script_builder: &KeyRegistry<'a>,
     ctx: &ParserContext<'a>,
 ) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
     let mut builder = Builder::new();
@@ -56,7 +22,7 @@ pub fn build_script<'a>(
 }
 
 fn build_fragment<'a>(
-    script_builder: &ScriptBuilder<'a>,
+    script_builder: &KeyRegistry<'a>,
     ctx: &ParserContext<'a>,
     ast: &AST<'a>,
     mut builder: Builder,
@@ -73,8 +39,7 @@ fn build_fragment<'a>(
         Fragment::PkK { key } => {
             let public_key =
                 script_builder
-                    .keys
-                    .get(key)
+                    .get_key(key)
                     .ok_or(ScriptBuilderError::KeyNotFound {
                         position: ast.position,
                         key,
@@ -85,8 +50,7 @@ fn build_fragment<'a>(
         Fragment::PkH { key } => {
             let public_key =
                 script_builder
-                    .keys
-                    .get(key)
+                    .get_key(key)
                     .ok_or(ScriptBuilderError::KeyNotFound {
                         position: ast.position,
                         key,
@@ -108,8 +72,7 @@ fn build_fragment<'a>(
         }
         Fragment::Sha256 { h } => {
             let hash = script_builder
-                .hashes
-                .get(h)
+                .get_hash(h)
                 .ok_or(ScriptBuilderError::HashNotFound {
                     position: ast.position,
                     hash: h,
@@ -126,8 +89,7 @@ fn build_fragment<'a>(
         }
         Fragment::Hash256 { h } => {
             let hash = script_builder
-                .hashes
-                .get(h)
+                .get_hash(h)
                 .ok_or(ScriptBuilderError::HashNotFound {
                     position: ast.position,
                     hash: h,
@@ -143,8 +105,7 @@ fn build_fragment<'a>(
         }
         Fragment::Ripemd160 { h } => {
             let hash = script_builder
-                .hashes
-                .get(h)
+                .get_hash(h)
                 .ok_or(ScriptBuilderError::HashNotFound {
                     position: ast.position,
                     hash: h,
@@ -160,8 +121,7 @@ fn build_fragment<'a>(
         }
         Fragment::Hash160 { h } => {
             let hash = script_builder
-                .hashes
-                .get(h)
+                .get_hash(h)
                 .ok_or(ScriptBuilderError::HashNotFound {
                     position: ast.position,
                     hash: h,
@@ -239,8 +199,7 @@ fn build_fragment<'a>(
             for key in keys {
                 let public_key =
                     script_builder
-                        .keys
-                        .get(key)
+                        .get_key(key)
                         .ok_or(ScriptBuilderError::KeyNotFound {
                             position: ast.position,
                             key,
@@ -256,8 +215,7 @@ fn build_fragment<'a>(
             for key in keys {
                 let public_key =
                     script_builder
-                        .keys
-                        .get(key)
+                        .get_key(key)
                         .ok_or(ScriptBuilderError::KeyNotFound {
                             position: ast.position,
                             key,
@@ -315,5 +273,12 @@ fn build_fragment<'a>(
                 Ok(builder)
             }
         },
+        Fragment::Descriptor {
+            descriptor: _,
+            inner,
+        } => {
+            let builder = build_fragment(script_builder, ctx, ctx.get_node(*inner), builder)?;
+            Ok(builder)
+        }
     }
 }
