@@ -355,7 +355,7 @@ pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
 }
 
 fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError<'a>> {
-    let (token, column) = ctx.next_token().ok_or(ParseError::UnexpectedEof {
+    let (token, column) = ctx.peek_token().ok_or(ParseError::UnexpectedEof {
         context: "parse_descriptor",
     })?;
 
@@ -365,6 +365,20 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseErr
         ctx.top_level_descriptor = Some(descriptor.clone());
     }
     ctx.inner_descriptor = descriptor.clone();
+
+    // If the descriptor is bare, we need to parse the inner descriptor
+    if descriptor == Descriptor::Bare {
+        let inner = parse_internal(ctx)?;
+        return Ok(AST {
+            position: column,
+            fragment: Fragment::Descriptor {
+                descriptor: Descriptor::Bare,
+                inner: ctx.add_node(inner),
+            },
+        });
+    } else {
+        ctx.next_token();
+    }
 
     // For sh descriptors, we need to check what's inside
     if descriptor == Descriptor::Sh
