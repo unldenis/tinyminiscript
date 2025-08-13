@@ -1,6 +1,6 @@
 #! /bin/bash
 
 cd tests
-# cargo bloat --release --filter miniscript_rs
+# cargo bloat --release --filter tinyminiscript
 cargo run
 cd ..

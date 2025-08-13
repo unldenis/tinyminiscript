@@ -5,7 +5,7 @@ fn main() {
     // Run cargo bloat command
     let output = Command::new("sh")
         .arg("-c")
-        .arg("cd tests && cargo bloat --release -n 0 | grep miniscript_rs")
+        .arg("cd tests && cargo bloat --release -n 0 | grep tinyminiscript")
         .output()
         .expect("Failed to execute cargo bloat");
 
@@ -15,7 +15,7 @@ fn main() {
     let mut total_bytes : u64 = 0;
     
     for line in output_str.lines() {
-        if line.contains("miniscript_rs") {
+        if line.contains("tinyminiscript") {
             // Extract size from lines like "0.2%   3.0%   9.0KiB  f_miniscript"
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {

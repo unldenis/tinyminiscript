@@ -1,6 +1,7 @@
 // AST Printer
 
-use miniscript_rs::parser::{AST, Fragment, ParserContext};
+use std::collections::HashMap;
+use tinyminiscript::parser::{AST, Fragment, ParserContext};
 
 pub struct ASTPrinter {
     indent_level: usize,

@@ -120,13 +120,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a82ae493e598baaea5209805c49bbf2ea7de956d50d7da0da1164f9c6d28543"
 
 [[package]]
-name = "miniscript-rs"
-version = "0.1.0"
-dependencies = [
- "bitcoin",
-]
-
-[[package]]
 name = "ppv-lite86"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -225,9 +218,16 @@ name = "tests"
 version = "0.1.0"
 dependencies = [
  "bitcoin",
- "miniscript-rs",
  "rand",
  "secp256k1",
+ "tinyminiscript",
+]
+
+[[package]]
+name = "tinyminiscript"
+version = "0.1.0"
+dependencies = [
+ "bitcoin",
 ]
 
 [[package]]
