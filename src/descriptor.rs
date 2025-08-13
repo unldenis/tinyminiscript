@@ -1,7 +1,8 @@
-use crate::{
-    model::KeyRegistry,
-    parser::{AST, ASTVisitor, Fragment, ParserContext, Position},
-};
+use core::{marker::PhantomData, str::FromStr};
+
+use bitcoin::{PublicKey, XOnlyPublicKey, key::ParsePublicKeyError};
+
+use crate::parser::{AST, ASTVisitor, Fragment, ParserContext, Position};
 
 /// Script descriptor
 #[derive(Debug, Clone, PartialEq)]
@@ -44,75 +45,55 @@ impl Descriptor {
     }
 }
 
-pub struct DescriptorValidator<'a, 'b> {
-    script_builder: &'b KeyRegistry<'a>,
-    descriptor: Descriptor,
+pub struct DescriptorValidator<'a> {
+    phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, 'b> DescriptorValidator<'a, 'b> {
+impl<'a> DescriptorValidator<'a> {
     #[inline]
-    pub fn new(script_builder: &'b KeyRegistry<'a>) -> Self {
+    pub fn new() -> Self {
         Self {
-            script_builder,
-            descriptor: Descriptor::default(),
+            phantom: PhantomData,
         }
     }
 }
 
 #[derive(Debug)]
-pub enum DescriptorVisitorError<'a> {
-    KeyNotFound {
-        position: Position,
-        key: &'a str,
-    },
+pub enum DescriptorVisitorError {
     InvalidFragmentForDescriptor {
         position: Position,
         expected: Descriptor,
         found: Descriptor,
     },
-    InvalidPublicKeyForDescriptor {
+    PublicKeyNotCompressed {
         position: Position,
-        label: &'a str,
-        reason: &'static str,
     },
 }
 
-impl<'a, 'b> ASTVisitor<'a, ()> for DescriptorValidator<'a, 'b> {
-    type Error = DescriptorVisitorError<'a>;
+impl<'a> ASTVisitor<'a, ()> for DescriptorValidator<'a> {
+    type Error = DescriptorVisitorError;
 
     fn visit_ast(&mut self, ctx: &ParserContext<'a>, node: &AST<'a>) -> Result<(), Self::Error> {
         match &node.fragment {
             Fragment::Descriptor { descriptor, inner } => {
-                self.descriptor = descriptor.clone();
                 self.visit_ast_by_index(ctx, *inner)?;
             }
 
             Fragment::False => {}
             Fragment::True => {}
-            Fragment::PkK { key } | Fragment::PkH { key } => {
-                let public_key = self.script_builder.get_key(key).ok_or(
-                    DescriptorVisitorError::KeyNotFound {
-                        position: node.position,
-                        key: key,
-                    },
-                )?;
-
-                match &self.descriptor {
-                    Descriptor::Bare => {}
-                    Descriptor::Pkh => {}
-                    Descriptor::Sh => {}
-                    Descriptor::Wpkh | Descriptor::Wsh => {
-                        if !public_key.compressed {
-                            return Err(DescriptorVisitorError::InvalidPublicKeyForDescriptor {
-                                position: node.position,
-                                label: key,
-                                reason: "public key must be compressed",
-                            });
-                        }
+            Fragment::PkK { key } | Fragment::PkH { key } => match &ctx.inner_descriptor {
+                Descriptor::Bare => {}
+                Descriptor::Pkh => {}
+                Descriptor::Sh => {}
+                Descriptor::Wpkh | Descriptor::Wsh => {
+                    if !key.is_compressed() {
+                        return Err(DescriptorVisitorError::PublicKeyNotCompressed {
+                            position: node.position,
+                        });
                     }
-                    Descriptor::Tr => {}
                 }
-            }
+                Descriptor::Tr => {}
+            },
             Fragment::Older { n } => {}
             Fragment::After { n } => {}
             Fragment::Sha256 { h } => {}
@@ -155,21 +136,21 @@ impl<'a, 'b> ASTVisitor<'a, ()> for DescriptorValidator<'a, 'b> {
             }
             Fragment::Multi { k, keys } => {
                 // (P2WSH only)
-                if self.descriptor != Descriptor::Wsh {
+                if ctx.inner_descriptor != Descriptor::Wsh {
                     return Err(DescriptorVisitorError::InvalidFragmentForDescriptor {
                         position: node.position,
                         expected: Descriptor::Wsh,
-                        found: self.descriptor.clone(),
+                        found: ctx.inner_descriptor.clone(),
                     });
                 }
             }
             Fragment::MultiA { k, keys } => {
                 // Tapscript only
-                if self.descriptor != Descriptor::Tr {
+                if ctx.inner_descriptor != Descriptor::Tr {
                     return Err(DescriptorVisitorError::InvalidFragmentForDescriptor {
                         position: node.position,
                         expected: Descriptor::Tr,
-                        found: self.descriptor.clone(),
+                        found: ctx.inner_descriptor.clone(),
                     });
                 }
             }

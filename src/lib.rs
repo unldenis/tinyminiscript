@@ -2,7 +2,6 @@
 #![forbid(unsafe_code)]
 
 pub mod descriptor;
-pub mod model;
 pub mod parser;
 pub mod script;
 pub mod type_checker;
@@ -12,7 +11,6 @@ pub extern crate alloc;
 //
 
 use bitcoin::ScriptBuf;
-use model::KeyRegistry;
 use parser::ASTVisitor;
 
 use crate::{parser::ParserContext, type_checker::TypeInfo};
@@ -21,13 +19,12 @@ use crate::{parser::ParserContext, type_checker::TypeInfo};
 pub enum MiniscriptError<'a> {
     ParserError(parser::ParseError<'a>),
     TypeCheckerError(type_checker::CorrectnessPropertiesVisitorError),
-    DescriptorVisitorError(descriptor::DescriptorVisitorError<'a>),
+    DescriptorVisitorError(descriptor::DescriptorVisitorError),
     ScriptBuilderError(script::ScriptBuilderError<'a>),
 }
 
 pub fn parse_script<'a>(
     script: &'a str,
-    script_builder: &KeyRegistry<'a>,
 ) -> Result<(ParserContext<'a>, ScriptBuf), MiniscriptError<'a>> {
     let ctx = parser::parse(script).map_err(|e| MiniscriptError::ParserError(e))?;
 
@@ -37,11 +34,11 @@ pub fn parse_script<'a>(
         .map_err(|e| MiniscriptError::TypeCheckerError(e))?;
 
     // descriptor visitor
-    let _: () = descriptor::DescriptorValidator::new(script_builder)
+    let _: () = descriptor::DescriptorValidator::new()
         .visit(&ctx)
         .map_err(|e| MiniscriptError::DescriptorVisitorError(e))?;
 
-    let script_buf = script::build_script(script_builder, &ctx)
-        .map_err(|e| MiniscriptError::ScriptBuilderError(e))?;
+    let script_buf =
+        script::build_script(&ctx).map_err(|e| MiniscriptError::ScriptBuilderError(e))?;
     Ok((ctx, script_buf))
 }

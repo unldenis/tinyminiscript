@@ -31,10 +31,10 @@ impl ASTPrinter {
                 self.output.push_str("True\n");
             }
             Fragment::PkK { key } => {
-                self.output.push_str(&format!("PkK({})\n", key));
+                self.output.push_str(&format!("PkK({:?})\n", key));
             }
             Fragment::PkH { key } => {
-                self.output.push_str(&format!("PkH({})\n", key));
+                self.output.push_str(&format!("PkH({:?})\n", key));
             }
             Fragment::Older { n } => {
                 self.output.push_str(&format!("Older({})\n", n));
@@ -43,16 +43,16 @@ impl ASTPrinter {
                 self.output.push_str(&format!("After({})\n", n));
             }
             Fragment::Sha256 { h } => {
-                self.output.push_str(&format!("Sha256({})\n", h));
+                self.output.push_str(&format!("Sha256({:?})\n", h));
             }
             Fragment::Hash256 { h } => {
-                self.output.push_str(&format!("Hash256({})\n", h));
+                self.output.push_str(&format!("Hash256({:?})\n", h));
             }
             Fragment::Ripemd160 { h } => {
-                self.output.push_str(&format!("Ripemd160({})\n", h));
+                self.output.push_str(&format!("Ripemd160({:?})\n", h));
             }
             Fragment::Hash160 { h } => {
-                self.output.push_str(&format!("Hash160({})\n", h));
+                self.output.push_str(&format!("Hash160({:?})\n", h));
             }
             Fragment::AndOr { x, y, z } => {
                 self.output.push_str("AndOr(\n");

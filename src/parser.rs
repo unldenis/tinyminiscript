@@ -1,5 +1,8 @@
 use alloc::vec::Vec;
-use core::fmt::Debug;
+use core::{
+    fmt::{self, Debug},
+    str::FromStr,
+};
 
 use crate::descriptor::Descriptor;
 
@@ -48,9 +51,9 @@ pub enum Fragment<'a> {
 
     // Key Fragments
     /// pk_k(key)
-    PkK { key: &'a str },
+    PkK { key: KeyType },
     /// pk_h(key)
-    PkH { key: &'a str },
+    PkH { key: KeyType },
 
     // Time fragments
     /// older(n)
@@ -60,13 +63,13 @@ pub enum Fragment<'a> {
 
     // Hash Fragments
     /// sha256(h)
-    Sha256 { h: &'a str },
+    Sha256 { h: &'a [u8; 32] },
     /// hash256(h)
-    Hash256 { h: &'a str },
+    Hash256 { h: &'a [u8; 32] },
     /// ripemd160(h)
-    Ripemd160 { h: &'a str },
+    Ripemd160 { h: &'a [u8; 20] },
     /// hash160(h)
-    Hash160 { h: &'a str },
+    Hash160 { h: &'a [u8; 20] },
 
     // Logical Fragments
     /// andor(X,Y,Z)
@@ -96,10 +99,16 @@ pub enum Fragment<'a> {
     Thresh { k: i32, xs: Vec<NodeIndex> },
     ///  multi(k,key1,...,keyn)
     /// (P2WSH only)
-    Multi { k: i32, keys: Vec<&'a str> },
+    Multi {
+        k: i32,
+        keys: Vec<bitcoin::PublicKey>,
+    },
     /// multi_a(k,key1,...,keyn)
     /// (Tapscript only)
-    MultiA { k: i32, keys: Vec<&'a str> },
+    MultiA {
+        k: i32,
+        keys: Vec<bitcoin::XOnlyPublicKey>,
+    },
 
     Identity {
         identity_type: IdentityType,
@@ -111,6 +120,55 @@ pub enum Fragment<'a> {
         descriptor: Descriptor,
         inner: NodeIndex,
     },
+}
+
+pub enum KeyType {
+    PublicKey(bitcoin::PublicKey),
+    XOnlyPublicKey(bitcoin::XOnlyPublicKey),
+}
+
+impl Debug for KeyType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KeyType::PublicKey(k) => write!(f, "Pub({})", k),
+            KeyType::XOnlyPublicKey(k) => write!(f, "XOnly({})", k),
+        }
+    }
+}
+
+impl KeyType {
+    #[inline]
+    pub const fn is_compressed(&self) -> bool {
+        match self {
+            KeyType::PublicKey(k) => k.compressed,
+            KeyType::XOnlyPublicKey(_) => true,
+        }
+    }
+
+    pub fn parse<'a>(
+        token: (&'a str, Position),
+        descriptor: &Descriptor,
+    ) -> Result<Self, ParseError<'a>> {
+        // Get the key type based on the inner descriptor
+        let key = match descriptor {
+            Descriptor::Tr => {
+                KeyType::XOnlyPublicKey(bitcoin::XOnlyPublicKey::from_str(token.0).map_err(
+                    |_| ParseError::InvalidXOnlyKey {
+                        key: token.0,
+                        position: token.1,
+                    },
+                )?)
+            }
+            _ => KeyType::PublicKey(bitcoin::PublicKey::from_str(token.0).map_err(|e| {
+                ParseError::InvalidKey {
+                    key: token.0,
+                    position: token.1,
+                    inner: e,
+                }
+            })?),
+        };
+        Ok(key)
+    }
 }
 
 #[derive(Debug)]
@@ -173,6 +231,15 @@ pub enum ParseError<'a> {
         expected: &'static str,
         found: (&'a str, Position),
     },
+    InvalidKey {
+        key: &'a str,
+        position: Position,
+        inner: bitcoin::key::ParsePublicKeyError,
+    },
+    InvalidXOnlyKey {
+        key: &'a str,
+        position: Position,
+    },
 }
 
 pub struct ParserContext<'a> {
@@ -181,7 +248,9 @@ pub struct ParserContext<'a> {
     nodes: Vec<AST<'a>>,
 
     root: Option<AST<'a>>,
-    pub top_level_descriptor: Option<Descriptor>,
+
+    top_level_descriptor: Option<Descriptor>,
+    pub(crate) inner_descriptor: Descriptor,
 }
 
 impl<'a> ParserContext<'a> {
@@ -195,6 +264,7 @@ impl<'a> ParserContext<'a> {
             nodes: Vec::new(),
             root: None,
             top_level_descriptor: None,
+            inner_descriptor: Descriptor::default(),
         }
     }
 
@@ -294,6 +364,7 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseErr
     if ctx.top_level_descriptor.is_none() {
         ctx.top_level_descriptor = Some(descriptor.clone());
     }
+    ctx.inner_descriptor = descriptor.clone();
 
     // For sh descriptors, we need to check what's inside
     if descriptor == Descriptor::Sh
@@ -359,11 +430,14 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
         "pk_k" => {
             ctx.next_token(); // Advance past "pk_k"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (key, _key_column) = ctx
+            let key_token = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "pk_k" })?;
 
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+
+            // Get the key type based on the inner descriptor
+            let key = KeyType::parse(key_token, &ctx.inner_descriptor)?;
 
             Ok(AST {
                 position: column,
@@ -373,11 +447,14 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
         "pk_h" => {
             ctx.next_token(); // Advance past "pk_h"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (key, _key_column) = ctx
+            let key_token = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "pk_h" })?;
 
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+
+            // Get the key type based on the inner descriptor
+            let key = KeyType::parse(key_token, &ctx.inner_descriptor)?;
 
             Ok(AST {
                 position: column,
@@ -389,11 +466,14 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
 
             ctx.next_token(); // Advance past "pk"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (key, _key_column) = ctx
+            let (key, key_column) = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "pk" })?;
 
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+
+            // Get the key type based on the inner descriptor
+            let key = KeyType::parse((key, key_column), &ctx.inner_descriptor)?;
 
             let mut ast = AST {
                 position: column,
@@ -415,11 +495,14 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
 
             ctx.next_token(); // Advance past "pkh"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (key, _key_column) = ctx
+            let key_token = ctx
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "pkh" })?;
 
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+
+            // Get the key type based on the inner descriptor
+            let key = KeyType::parse(key_token, &ctx.inner_descriptor)?;
 
             let mut ast = AST {
                 position: column,
@@ -485,6 +568,14 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
                 .ok_or(ParseError::UnexpectedEof { context: "sha256" })?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
+            let h: &'a [u8; 32] =
+                h.as_bytes()
+                    .try_into()
+                    .map_err(|_| ParseError::UnexpectedToken {
+                        expected: "[u8; 32]",
+                        found: (h, _h_column),
+                    })?;
+
             Ok(AST {
                 position: column,
                 fragment: Fragment::Sha256 { h },
@@ -498,6 +589,14 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "hash256" })?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+
+            let h: &'a [u8; 32] =
+                h.as_bytes()
+                    .try_into()
+                    .map_err(|_| ParseError::UnexpectedToken {
+                        expected: "[u8; 32]",
+                        found: (h, _h_column),
+                    })?;
 
             Ok(AST {
                 position: column,
@@ -513,6 +612,14 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
             })?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
+            let h: &'a [u8; 20] =
+                h.as_bytes()
+                    .try_into()
+                    .map_err(|_| ParseError::UnexpectedToken {
+                        expected: "[u8; 20]",
+                        found: (h, _h_column),
+                    })?;
+
             Ok(AST {
                 position: column,
                 fragment: Fragment::Ripemd160 { h },
@@ -526,6 +633,14 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
                 .next_token()
                 .ok_or(ParseError::UnexpectedEof { context: "hash160" })?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+
+            let h: &'a [u8; 20] =
+                h.as_bytes()
+                    .try_into()
+                    .map_err(|_| ParseError::UnexpectedToken {
+                        expected: "[u8; 20]",
+                        found: (h, _h_column),
+                    })?;
 
             Ok(AST {
                 position: column,
@@ -737,9 +852,16 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
                 } else if token == "," {
                     ctx.next_token();
                 }
-                let (key, _key_column) = ctx
+                let (key, key_column) = ctx
                     .next_token()
                     .ok_or(ParseError::UnexpectedEof { context: "multi" })?;
+
+                let key =
+                    bitcoin::PublicKey::from_str(key).map_err(|e| ParseError::InvalidKey {
+                        key,
+                        position: key_column,
+                        inner: e,
+                    })?;
                 keys.push(key);
             }
 
@@ -770,9 +892,15 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
                 } else if token == "," {
                     ctx.next_token();
                 }
-                let (key, _key_column) = ctx
+                let (key, key_column) = ctx
                     .next_token()
                     .ok_or(ParseError::UnexpectedEof { context: "multi_a" })?;
+                let key = bitcoin::XOnlyPublicKey::from_str(key).map_err(|e| {
+                    ParseError::InvalidXOnlyKey {
+                        key,
+                        position: key_column,
+                    }
+                })?;
                 keys.push(key);
             }
 
