@@ -54,14 +54,9 @@ pub mod type_checker;
 pub extern crate alloc;
 
 #[cfg(feature = "alloc")]
-pub(crate) type Vec16<T> = alloc::vec::Vec<T>;
+pub(crate) type Vec<T, const N: usize> = alloc::vec::Vec<T>;
 #[cfg(not(feature = "alloc"))]
-pub(crate) type Vec16<T> = arrayvec::ArrayVec<T, 16>;
-
-#[cfg(feature = "alloc")]
-pub(crate) type Vec256<T> = alloc::vec::Vec<T>;
-#[cfg(not(feature = "alloc"))]
-pub(crate) type Vec256<T> = arrayvec::ArrayVec<T, 256>;
+pub(crate) type Vec<T, const N: usize> = arrayvec::ArrayVec<T, N>;
 
 // ---
 

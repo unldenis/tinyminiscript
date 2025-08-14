@@ -3,7 +3,7 @@ use core::{
     str::FromStr,
 };
 
-use crate::{Vec16, Vec256, descriptor::Descriptor};
+use crate::{Vec, descriptor::Descriptor};
 
 // AST Visitor
 
@@ -95,18 +95,18 @@ pub enum Fragment<'a> {
 
     // Threshold Fragments
     /// thresh(k,X1,...,Xn)
-    Thresh { k: i32, xs: Vec16<NodeIndex> },
+    Thresh { k: i32, xs: Vec<NodeIndex, 16> },
     ///  multi(k,key1,...,keyn)
     /// (P2WSH only)
     Multi {
         k: i32,
-        keys: Vec16<bitcoin::PublicKey>,
+        keys: Vec<bitcoin::PublicKey, 16>,
     },
     /// multi_a(k,key1,...,keyn)
     /// (Tapscript only)
     MultiA {
         k: i32,
-        keys: Vec16<bitcoin::XOnlyPublicKey>,
+        keys: Vec<bitcoin::XOnlyPublicKey, 16>,
     },
 
     Identity {
@@ -184,13 +184,13 @@ pub enum IdentityType {
 
 // Optimized tokenization using string slices instead of owned strings
 #[inline]
-fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec256<(&'a str, usize)>
+fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec<(&'a str, usize), 512>
 where
     F: Fn(char) -> bool,
 {
     // Pre-allocate with estimated capacity to reduce reallocations
     // let estimated_tokens = s.len() / 3 + 1; // Rough estimate
-    let mut result = Vec256::new();
+    let mut result = Vec::new();
     let mut char_indices = s.char_indices().peekable();
     let mut start = 0;
     let mut column = 1;
@@ -243,9 +243,9 @@ pub enum ParseError<'a> {
 }
 
 pub struct ParserContext<'a> {
-    tokens: Vec256<(&'a str, usize)>,
+    tokens: Vec<(&'a str, usize), 512>,
     current_token: usize,
-    nodes: Vec256<AST<'a>>,
+    nodes: Vec<AST<'a>, 256>,
 
     root: Option<AST<'a>>,
 
@@ -261,7 +261,7 @@ impl<'a> ParserContext<'a> {
         Self {
             tokens,
             current_token: 0,
-            nodes: Vec256::new(),
+            nodes: Vec::new(),
             root: None,
             top_level_descriptor: None,
             inner_descriptor: Descriptor::default(),
@@ -828,7 +828,7 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
             })?;
 
             // Pre-allocate with reasonable capacity to reduce reallocations
-            let mut xs = Vec16::new();
+            let mut xs = Vec::new();
             while let Some((token, _column)) = ctx.peek_token() {
                 if token == ")" {
                     break;
@@ -859,7 +859,7 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
             })?;
 
             // Pre-allocate with reasonable capacity
-            let mut keys = Vec16::new();
+            let mut keys = Vec::new();
             while let Some((token, _column)) = ctx.peek_token() {
                 if token == ")" {
                     break;
@@ -899,7 +899,7 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
             })?;
 
             // Pre-allocate with reasonable capacity
-            let mut keys = Vec16::new();
+            let mut keys = Vec::new();
             while let Some((token, _column)) = ctx.peek_token() {
                 if token == ")" {
                     break;
