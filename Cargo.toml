@@ -1,6 +1,6 @@
 [package]
 name = "tinyminiscript"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
 
 [dependencies]
@@ -12,6 +12,7 @@ crate-type = ["lib"]
 
 [features]
 default = ["dep:arrayvec"]
-
+# Enable dynamic memory allocation using the alloc crate
 alloc = []
+# Enable Debug trait implementations for error types
 debug = []
