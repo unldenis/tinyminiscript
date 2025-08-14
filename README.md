@@ -2,14 +2,6 @@
 
 tinyminiscript — `no_std`, blazing fast [Miniscript](https://bitcoin.sipa.be/miniscript/) library.
 
-## Analyzing Implementation Size
+## Documentation
 
-To analyze the size of the miniscript implementation in the compiled binary:
-
-```bash
-rustc analyze_miniscript.rs && ./analyze_miniscript
-```
-
-| Architecture | Size    |
-| ------------ | ------- |
-| x86_64       | 34.2 KB |
+Documentation is available on [docs.rs](https://docs.rs/tinyminiscript/).

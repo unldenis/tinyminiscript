@@ -1,7 +1,14 @@
 [package]
 name = "tinyminiscript"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
+
+description = "A lightweight, no_std-compatible miniscript parser and validator for Bitcoin"
+license = "MIT OR Apache-2.0" 
+repository = "https://github.com/unldenis/tinyminiscript"
+keywords = ["bitcoin", "miniscript", "parser", "no-std"]
+categories = ["cryptography", "parsing"]
+readme = "README.md"
 
 [dependencies]
 bitcoin = { version = "0.32.7", default-features = false }
