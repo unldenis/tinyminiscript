@@ -13,7 +13,7 @@ use crate::{
     parser::{AST, Fragment, KeyType, ParserContext, Position},
 };
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub enum ScriptBuilderError<'a> {
     InvalidKeyForDescriptor {
         position: Position,

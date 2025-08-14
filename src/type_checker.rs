@@ -1,5 +1,3 @@
-use alloc::format;
-use alloc::string::String;
 use core::fmt::Debug;
 
 use crate::parser::{AST, ASTVisitor, Fragment, IdentityType, ParserContext, Position};
@@ -23,7 +21,7 @@ pub const PROPERTY_N: u8 = 1 << 2;
 pub const PROPERTY_D: u8 = 1 << 3;
 pub const PROPERTY_U: u8 = 1 << 4;
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub struct TypeInfo {
     base_type: u8,
     properties: u8,
@@ -70,11 +68,20 @@ impl CorrectnessPropertiesVisitor {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub enum CorrectnessPropertiesVisitorError {
-    UnexpectedType { position: Position, reason: String },
-    InvalidThreshold { position: Position, k: i32 },
-    EmptyThreshold { position: Position },
+    UnexpectedType {
+        position: Position,
+        reason: &'static str,
+        found: u8,
+    },
+    InvalidThreshold {
+        position: Position,
+        k: i32,
+    },
+    EmptyThreshold {
+        position: Position,
+    },
 }
 
 impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
@@ -128,31 +135,24 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
 
                 if x_type.base_type() != MINISCRIPT_TYPE_B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "andor(X,Y,Z): X must be type B (Base), but got type {:?}",
-                            x_type.base_type()
-                        ),
+                        reason: "andor(X,Y,Z): X must be type B (Base)",
+                        found: x_type.base_type(),
                         position: node.position,
                     });
                 }
 
                 if !x_type.has_properties(PROPERTY_D | PROPERTY_U) {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "andor(X,Y,Z): X must have property 'du', but got properties {:?}",
-                            x_type.properties()
-                        ),
+                        reason: "andor(X,Y,Z): X must have property 'du'",
+                        found: x_type.properties(),
                         position: node.position,
                     });
                 }
 
                 if y_type.base_type() != z_type.base_type() {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "andor(X,Y,Z): Y and Z must have the same type, but Y is {:?} and Z is {:?}",
-                            y_type.base_type(),
-                            z_type.base_type()
-                        ),
+                        reason: "andor(X,Y,Z): Y and Z must have the same type, but Y is",
+                        found: y_type.base_type(),
                         position: node.position,
                     });
                 }
@@ -162,10 +162,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     && y_type.base_type() != MINISCRIPT_TYPE_V
                 {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "andor(X,Y,Z): Y must be type B (Base), K (Key), or V (Verify), but got type {:?}",
-                            y_type.base_type()
-                        ),
+                        reason: "andor(X,Y,Z): Y must be type B (Base), K (Key), or V (Verify)",
+                        found: y_type.base_type(),
                         position: node.position,
                     });
                 }
@@ -204,10 +202,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
 
                 if x_type.base_type() != MINISCRIPT_TYPE_V {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "and_v(X,Y): X must be type V (Verify), but got type {:?}",
-                            x_type.base_type()
-                        ),
+                        reason: "and_v(X,Y): X must be type V (Verify)",
+                        found: x_type.base_type(),
                         position: node.position,
                     });
                 }
@@ -217,10 +213,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     && y_type.base_type() != MINISCRIPT_TYPE_V
                 {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "and_v(X,Y): Y must be type B (Base), K (Key), or V (Verify), but got type {:?}",
-                            y_type.base_type()
-                        ),
+                        reason: "and_v(X,Y): Y must be type B (Base), K (Key), or V (Verify)",
+                        found: y_type.base_type(),
                         position: node.position,
                     });
                 }
@@ -254,20 +248,16 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
 
                 if x_type.base_type() != MINISCRIPT_TYPE_B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "and_b(X,Y): X must be type B (Base), but got type {:?}",
-                            x_type.base_type()
-                        ),
+                        reason: "and_b(X,Y): X must be type B (Base)",
+                        found: x_type.base_type(),
                         position: node.position,
                     });
                 }
 
                 if y_type.base_type() != MINISCRIPT_TYPE_W {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "and_b(X,Y): Y must be type W (Wrapped), but got type {:?}",
-                            y_type.base_type()
-                        ),
+                        reason: "and_b(X,Y): Y must be type W (Wrapped)",
+                        found: y_type.base_type(),
                         position: node.position,
                     });
                 }
@@ -305,40 +295,32 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
 
                 if x_type.base_type() != MINISCRIPT_TYPE_B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_b(X,Z): X must be type B (Base), but got type {:?}",
-                            x_type.base_type()
-                        ),
+                        reason: "or_b(X,Z): X must be type B (Base)",
+                        found: x_type.base_type(),
                         position: node.position,
                     });
                 }
 
                 if !x_type.has_property(PROPERTY_D) {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_b(X,Z): X must have property D (Data), but got properties {:?}",
-                            x_type.properties()
-                        ),
+                        reason: "or_b(X,Z): X must have property D (Data)",
+                        found: x_type.properties(),
                         position: node.position,
                     });
                 }
 
                 if z_type.base_type() != MINISCRIPT_TYPE_W {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_b(X,Z): Z must be type W (Wrapped), but got type {:?}",
-                            z_type.base_type()
-                        ),
+                        reason: "or_b(X,Z): Z must be type W (Wrapped)",
+                        found: z_type.base_type(),
                         position: node.position,
                     });
                 }
 
                 if !z_type.has_property(PROPERTY_D) {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_b(X,Z): Z must have property D (Data), but got properties {:?}",
-                            z_type.properties()
-                        ),
+                        reason: "or_b(X,Z): Z must have property D (Data)",
+                        found: z_type.properties(),
                         position: node.position,
                     });
                 }
@@ -367,30 +349,24 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
 
                 if x_type.base_type() != MINISCRIPT_TYPE_B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_c(X,Z): X must be type B (Base), but got type {:?}",
-                            x_type.base_type()
-                        ),
+                        reason: "or_c(X,Z): X must be type B (Base)",
+                        found: x_type.base_type(),
                         position: node.position,
                     });
                 }
 
                 if !x_type.has_properties(PROPERTY_D | PROPERTY_U) {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_c(X,Z): X must have properties D (Data) and U (Unknown), but got properties {:?}",
-                            x_type.properties()
-                        ),
+                        reason: "or_c(X,Z): X must have properties D (Data) and U (Unknown)",
+                        found: x_type.properties(),
                         position: node.position,
                     });
                 }
 
                 if z_type.base_type() != MINISCRIPT_TYPE_V {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_c(X,Z): Z must be type V (Verify), but got type {:?}",
-                            z_type.base_type()
-                        ),
+                        reason: "or_c(X,Z): Z must be type V (Verify)",
+                        found: z_type.base_type(),
                         position: node.position,
                     });
                 }
@@ -414,30 +390,24 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
 
                 if x_type.base_type() != MINISCRIPT_TYPE_B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_d(X,Z): X must be type B (Base), but got type {:?}",
-                            x_type.base_type()
-                        ),
+                        reason: "or_d(X,Z): X must be type B (Base)",
+                        found: x_type.base_type(),
                         position: node.position,
                     });
                 }
 
                 if !x_type.has_properties(PROPERTY_D | PROPERTY_U) {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_d(X,Z): X must have properties D (Data) and U (Unknown), but got properties {:?}",
-                            x_type.properties()
-                        ),
+                        reason: "or_d(X,Z): X must have properties D (Data) and U (Unknown)",
+                        found: x_type.properties(),
                         position: node.position,
                     });
                 }
 
                 if z_type.base_type() != MINISCRIPT_TYPE_B {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_d(X,Z): Z must be type B (Base), but got type {:?}",
-                            z_type.base_type()
-                        ),
+                        reason: "or_d(X,Z): Z must be type B (Base)",
+                        found: z_type.base_type(),
                         position: node.position,
                     });
                 }
@@ -469,11 +439,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
 
                 if x_type.base_type() != z_type.base_type() {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_i(X,Z): X and Z must have the same type, but X is {:?} and Z is {:?}",
-                            x_type.base_type(),
-                            z_type.base_type()
-                        ),
+                        reason: "or_i(X,Z): X and Z must have the same type, but X is",
+                        found: x_type.base_type(),
                         position: node.position,
                     });
                 }
@@ -483,10 +450,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     && x_type.base_type() != MINISCRIPT_TYPE_V
                 {
                     return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                        reason: format!(
-                            "or_i(X,Z): X must be type B (Base), K (Key), or V (Verify), but got type {:?}",
-                            x_type.base_type()
-                        ),
+                        reason: "or_i(X,Z): X must be type B (Base), K (Key), or V (Verify)",
+                        found: x_type.base_type(),
                         position: node.position,
                     });
                 }
@@ -538,43 +503,32 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
 
                         if x_type.base_type() != MINISCRIPT_TYPE_B {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "thresh(k,X1,...,Xn): X1 must be type B (Base), but got type {:?}",
-                                    x_type.base_type()
-                                ),
+                                reason: "thresh(k,X1,...,Xn): X1 must be type B (Base)",
+                                found: x_type.base_type(),
                                 position: node.position,
                             });
                         }
 
                         if !x_type.has_properties(PROPERTY_D | PROPERTY_U) {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "thresh(k,X1,...,Xn): X{} must have properties D (Data) and U (Unknown), but got properties {:?}",
-                                    i,
-                                    x_type.properties()
-                                ),
+                                reason: "thresh(k,X1,...,Xn): X{} must have properties D (Data) and U (Unknown)",
+                                found: x_type.properties(),
                                 position: node.position,
                             });
                         }
                     } else {
                         if x_type.base_type() != MINISCRIPT_TYPE_W {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "thresh(k,X1,...,Xn): X{} must be type W (Wrapped), but got type {:?}",
-                                    i,
-                                    x_type.base_type()
-                                ),
+                                reason: "thresh(k,X1,...,Xn): X{} must be type W (Wrapped)",
+                                found: x_type.base_type(),
                                 position: node.position,
                             });
                         }
 
                         if !x_type.has_properties(PROPERTY_D | PROPERTY_U) {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "thresh(k,X1,...,Xn): X{} must have properties D (Data) and U (Unknown), but got properties {:?}",
-                                    i,
-                                    x_type.properties()
-                                ),
+                                reason: "thresh(k,X1,...,Xn): X{} must have properties D (Data) and U (Unknown)",
+                                found: x_type.properties(),
                                 position: node.position,
                             });
                         }
@@ -666,10 +620,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         // X is B
                         if x_type.base_type() != MINISCRIPT_TYPE_B {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "a:X: X must be type B (Base), but got type {:?}",
-                                    x_type.base_type()
-                                ),
+                                reason: "a:X: X must be type B (Base)",
+                                found: x_type.base_type(),
                                 position: node.position,
                             });
                         }
@@ -688,10 +640,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         // X is Bo
                         if x_type.base_type() != MINISCRIPT_TYPE_B {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "s:X: X must be type B (Base), but got type {:?}",
-                                    x_type.base_type()
-                                ),
+                                reason: "s:X: X must be type B (Base)",
+                                found: x_type.base_type(),
                                 position: node.position,
                             });
                         }
@@ -710,10 +660,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         // X is K
                         if x_type.base_type() != MINISCRIPT_TYPE_K {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "c:X: X must be type K (Key), but got type {:?}",
-                                    x_type.base_type()
-                                ),
+                                reason: "c:X: X must be type K (Key)",
+                                found: x_type.base_type(),
                                 position: node.position,
                             });
                         }
@@ -737,10 +685,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         // X is Vz
                         if x_type.base_type() != MINISCRIPT_TYPE_V {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "d:X: X must be type V (Verify), but got type {:?}",
-                                    x_type.base_type()
-                                ),
+                                reason: "d:X: X must be type V (Verify)",
+                                found: x_type.base_type(),
                                 position: node.position,
                             });
                         }
@@ -759,10 +705,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         // X is B
                         if x_type.base_type() != MINISCRIPT_TYPE_B {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "v:X: X must be type B (Base), but got type {:?}",
-                                    x_type.base_type()
-                                ),
+                                reason: "v:X: X must be type B (Base)",
+                                found: x_type.base_type(),
                                 position: node.position,
                             });
                         }
@@ -785,10 +729,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         // X is Bn
                         if x_type.base_type() != MINISCRIPT_TYPE_B {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "j:X: X must be type B (Base), but got type {:?}",
-                                    x_type.base_type()
-                                ),
+                                reason: "j:X: X must be type B (Base)",
+                                found: x_type.base_type(),
                                 position: node.position,
                             });
                         }
@@ -811,10 +753,8 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         // X is B
                         if x_type.base_type() != MINISCRIPT_TYPE_B {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: format!(
-                                    "n:X: X must be type B (Base), but got type {:?}",
-                                    x_type.base_type()
-                                ),
+                                reason: "n:X: X must be type B (Base)",
+                                found: x_type.base_type(),
                                 position: node.position,
                             });
                         }

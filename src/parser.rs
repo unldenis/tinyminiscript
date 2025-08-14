@@ -1,10 +1,9 @@
-use alloc::vec::Vec;
 use core::{
     fmt::{self, Debug},
     str::FromStr,
 };
 
-use crate::descriptor::Descriptor;
+use crate::{Vec16, Vec256, descriptor::Descriptor};
 
 // AST Visitor
 
@@ -33,7 +32,7 @@ pub type Position = usize;
 
 // AST
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub struct AST<'a> {
     pub position: Position,
     pub fragment: Fragment<'a>,
@@ -41,7 +40,7 @@ pub struct AST<'a> {
 
 pub type NodeIndex = u16;
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub enum Fragment<'a> {
     // Basic Fragments
     /// 0
@@ -96,18 +95,18 @@ pub enum Fragment<'a> {
 
     // Threshold Fragments
     /// thresh(k,X1,...,Xn)
-    Thresh { k: i32, xs: Vec<NodeIndex> },
+    Thresh { k: i32, xs: Vec16<NodeIndex> },
     ///  multi(k,key1,...,keyn)
     /// (P2WSH only)
     Multi {
         k: i32,
-        keys: Vec<bitcoin::PublicKey>,
+        keys: Vec16<bitcoin::PublicKey>,
     },
     /// multi_a(k,key1,...,keyn)
     /// (Tapscript only)
     MultiA {
         k: i32,
-        keys: Vec<bitcoin::XOnlyPublicKey>,
+        keys: Vec16<bitcoin::XOnlyPublicKey>,
     },
 
     Identity {
@@ -127,6 +126,7 @@ pub enum KeyType {
     XOnlyPublicKey(bitcoin::XOnlyPublicKey),
 }
 
+#[cfg(feature = "debug")]
 impl Debug for KeyType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -171,7 +171,7 @@ impl KeyType {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub enum IdentityType {
     A,
     S,
@@ -184,13 +184,13 @@ pub enum IdentityType {
 
 // Optimized tokenization using string slices instead of owned strings
 #[inline]
-fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec<(&'a str, usize)>
+fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec256<(&'a str, usize)>
 where
     F: Fn(char) -> bool,
 {
     // Pre-allocate with estimated capacity to reduce reallocations
-    let estimated_tokens = s.len() / 3 + 1; // Rough estimate
-    let mut result = Vec::with_capacity(estimated_tokens);
+    // let estimated_tokens = s.len() / 3 + 1; // Rough estimate
+    let mut result = Vec256::new();
     let mut char_indices = s.char_indices().peekable();
     let mut start = 0;
     let mut column = 1;
@@ -222,7 +222,7 @@ where
     result
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug) )]
 pub enum ParseError<'a> {
     UnexpectedEof {
         context: &'static str,
@@ -243,9 +243,9 @@ pub enum ParseError<'a> {
 }
 
 pub struct ParserContext<'a> {
-    tokens: Vec<(&'a str, usize)>,
+    tokens: Vec256<(&'a str, usize)>,
     current_token: usize,
-    nodes: Vec<AST<'a>>,
+    nodes: Vec256<AST<'a>>,
 
     root: Option<AST<'a>>,
 
@@ -261,7 +261,7 @@ impl<'a> ParserContext<'a> {
         Self {
             tokens,
             current_token: 0,
-            nodes: Vec::new(),
+            nodes: Vec256::new(),
             root: None,
             top_level_descriptor: None,
             inner_descriptor: Descriptor::default(),
@@ -828,7 +828,7 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
             })?;
 
             // Pre-allocate with reasonable capacity to reduce reallocations
-            let mut xs = Vec::with_capacity(8);
+            let mut xs = Vec16::new();
             while let Some((token, _column)) = ctx.peek_token() {
                 if token == ")" {
                     break;
@@ -859,7 +859,7 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
             })?;
 
             // Pre-allocate with reasonable capacity
-            let mut keys = Vec::with_capacity(8);
+            let mut keys = Vec16::new();
             while let Some((token, _column)) = ctx.peek_token() {
                 if token == ")" {
                     break;
@@ -899,7 +899,7 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
             })?;
 
             // Pre-allocate with reasonable capacity
-            let mut keys = Vec::with_capacity(8);
+            let mut keys = Vec16::new();
             while let Some((token, _column)) = ctx.peek_token() {
                 if token == ")" {
                     break;

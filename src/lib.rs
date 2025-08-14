@@ -6,16 +6,31 @@ pub mod parser;
 pub mod script;
 pub mod type_checker;
 
+// Vec16 and Vec256 are used to store the AST nodes and tokens.
+// 'alloc' feature is used to enable the use of alloc::vec::Vec, otherwise
+// arrayvec::ArrayVec is used.
+
+#[cfg(feature = "alloc")]
 pub extern crate alloc;
 
-//
+#[cfg(feature = "alloc")]
+pub(crate) type Vec16<T> = alloc::vec::Vec<T>;
+#[cfg(not(feature = "alloc"))]
+pub(crate) type Vec16<T> = arrayvec::ArrayVec<T, 16>;
+
+#[cfg(feature = "alloc")]
+pub(crate) type Vec256<T> = alloc::vec::Vec<T>;
+#[cfg(not(feature = "alloc"))]
+pub(crate) type Vec256<T> = arrayvec::ArrayVec<T, 256>;
+
+// ---
 
 use bitcoin::ScriptBuf;
 use parser::ASTVisitor;
 
 use crate::{parser::ParserContext, type_checker::TypeInfo};
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub enum MiniscriptError<'a> {
     ParserError(parser::ParseError<'a>),
     TypeCheckerError(type_checker::CorrectnessPropertiesVisitorError),

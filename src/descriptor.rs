@@ -5,7 +5,8 @@ use bitcoin::{PublicKey, XOnlyPublicKey, key::ParsePublicKeyError};
 use crate::parser::{AST, ASTVisitor, Fragment, ParserContext, Position};
 
 /// Script descriptor
-#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Clone, PartialEq)]
 pub enum Descriptor {
     /// A raw scriptpubkey (including pay-to-pubkey) under Legacy context
     Bare,
@@ -58,7 +59,7 @@ impl<'a> DescriptorValidator<'a> {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub enum DescriptorVisitorError {
     InvalidFragmentForDescriptor {
         position: Position,

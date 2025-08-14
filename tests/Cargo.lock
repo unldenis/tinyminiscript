@@ -227,6 +227,7 @@ dependencies = [
 name = "tinyminiscript"
 version = "0.1.0"
 dependencies = [
+ "arrayvec",
  "bitcoin",
 ]
 
