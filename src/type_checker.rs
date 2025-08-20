@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use crate::parser::{AST, ASTVisitor, Fragment, IdentityType, ParserContext, Position};
 
 // Miniscript Types as bit flags

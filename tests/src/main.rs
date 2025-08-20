@@ -3,7 +3,10 @@ mod ast_printer;
 use std::str::FromStr;
 
 use bitcoin::{PublicKey, XOnlyPublicKey};
-use tinyminiscript::MiniscriptError;
+use tinyminiscript::{
+    MiniscriptError,
+    satisfy::{SatisfactionError, Satisfier},
+};
 fn main() {
     let x_only = "0202020202020202020202020202020202020202020202020202020202020202";
     let pub_key = "020202020202020202020202020202020202020202020202020202020202020202";
@@ -25,11 +28,25 @@ fn main() {
         }
     }
 }
+#[derive(Debug)]
+enum Error<'a> {
+    Miniscript(MiniscriptError<'a>),
+    Satisfaction(SatisfactionError),
+}
 
-fn execute_script<'a>(script: &'a str) -> Result<(), MiniscriptError<'a>> {
+fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
     let mut ast_printer = ast_printer::ASTPrinter::new();
-    let (ctx, script_buf) = tinyminiscript::parse_script(script)?;
+    let (ctx, script_buf) = tinyminiscript::parse_script(script).map_err(Error::Miniscript)?;
     println!("ast: {}", ast_printer.print_ast(&ctx));
     println!("bitcoin script: {:?}", script_buf.to_asm_string());
+
+    let satisfied = ctx
+        .satisfy(&TestSatisfier {})
+        .map_err(Error::Satisfaction)?;
+    println!("satisfied: {}", satisfied);
     Ok(())
 }
+
+struct TestSatisfier {}
+
+impl Satisfier for TestSatisfier {}

@@ -1,11 +1,7 @@
-use core::{hash, marker::PhantomData, str::FromStr};
+use core::marker::PhantomData;
 
 use bitcoin::{
-    PubkeyHash, PublicKey, ScriptBuf, XOnlyPublicKey,
-    hashes::Hash,
-    key::{Parity, ParsePublicKeyError},
-    opcodes,
-    script::{Builder, PushBytes},
+    PubkeyHash, ScriptBuf, hashes::Hash, key::ParsePublicKeyError, opcodes, script::Builder,
 };
 
 use crate::{

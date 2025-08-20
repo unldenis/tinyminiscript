@@ -12,14 +12,11 @@ readme = "README.md"
 
 [dependencies]
 bitcoin = { version = "0.32.7", default-features = false }
-arrayvec = { version = "0.7.6", optional = true }
 
 [lib]
 crate-type = ["lib"]
 
 [features]
-default = ["dep:arrayvec"]
-# Enable dynamic memory allocation using the alloc crate
-alloc = []
+default = []
 # Enable Debug trait implementations for error types
 debug = []

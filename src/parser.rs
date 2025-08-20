@@ -1,9 +1,10 @@
-use core::{
-    fmt::{self, Debug},
-    str::FromStr,
-};
+use core::str::FromStr;
 
-use crate::{Vec, descriptor::Descriptor};
+use crate::{
+    Vec,
+    descriptor::Descriptor,
+    satisfy::{self, Satisfactions, Satisfier, SatisfyError},
+};
 
 // AST Visitor
 
@@ -95,18 +96,18 @@ pub enum Fragment<'a> {
 
     // Threshold Fragments
     /// thresh(k,X1,...,Xn)
-    Thresh { k: i32, xs: Vec<NodeIndex, 16> },
+    Thresh { k: i32, xs: Vec<NodeIndex> },
     ///  multi(k,key1,...,keyn)
     /// (P2WSH only)
     Multi {
         k: i32,
-        keys: Vec<bitcoin::PublicKey, 16>,
+        keys: Vec<bitcoin::PublicKey>,
     },
     /// multi_a(k,key1,...,keyn)
     /// (Tapscript only)
     MultiA {
         k: i32,
-        keys: Vec<bitcoin::XOnlyPublicKey, 16>,
+        keys: Vec<bitcoin::XOnlyPublicKey>,
     },
 
     Identity {
@@ -121,6 +122,7 @@ pub enum Fragment<'a> {
     },
 }
 
+#[derive(Clone)]
 pub enum KeyType {
     PublicKey(bitcoin::PublicKey),
     XOnlyPublicKey(bitcoin::XOnlyPublicKey),
@@ -169,6 +171,13 @@ impl KeyType {
         };
         Ok(key)
     }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            KeyType::PublicKey(k) => k.to_bytes(),
+            KeyType::XOnlyPublicKey(k) => k.serialize().to_vec(),
+        }
+    }
 }
 
 #[cfg_attr(feature = "debug", derive(Debug))]
@@ -184,7 +193,7 @@ pub enum IdentityType {
 
 // Optimized tokenization using string slices instead of owned strings
 #[inline]
-fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec<(&'a str, usize), 512>
+fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec<(&'a str, usize)>
 where
     F: Fn(char) -> bool,
 {
@@ -222,7 +231,7 @@ where
     result
 }
 
-#[cfg_attr(feature = "debug", derive(Debug) )]
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub enum ParseError<'a> {
     UnexpectedEof {
         context: &'static str,
@@ -243,9 +252,9 @@ pub enum ParseError<'a> {
 }
 
 pub struct ParserContext<'a> {
-    tokens: Vec<(&'a str, usize), 512>,
+    tokens: Vec<(&'a str, usize)>,
     current_token: usize,
-    nodes: Vec<AST<'a>, 256>,
+    nodes: Vec<AST<'a>>,
 
     root: Option<AST<'a>>,
 
@@ -341,6 +350,11 @@ impl<'a> ParserContext<'a> {
     #[inline]
     pub fn get_root(&self) -> &AST<'a> {
         self.root.as_ref().unwrap()
+    }
+
+    #[inline]
+    pub fn satisfy(&self, satisfier: &dyn Satisfier) -> Result<Satisfactions, SatisfyError> {
+        satisfy::satisfy(self, satisfier, &self.get_root())
     }
 }
 

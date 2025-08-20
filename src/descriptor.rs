@@ -1,6 +1,4 @@
-use core::{marker::PhantomData, str::FromStr};
-
-use bitcoin::{PublicKey, XOnlyPublicKey, key::ParsePublicKeyError};
+use core::marker::PhantomData;
 
 use crate::parser::{AST, ASTVisitor, Fragment, ParserContext, Position};
 
