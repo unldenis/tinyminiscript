@@ -5,7 +5,7 @@ use std::str::FromStr;
 use bitcoin::{PublicKey, XOnlyPublicKey};
 use tinyminiscript::{
     MiniscriptError,
-    satisfy::{SatisfactionError, Satisfier},
+    satisfy::{Satisfier, SatisfyError},
 };
 fn main() {
     let x_only = "0202020202020202020202020202020202020202020202020202020202020202";
@@ -31,7 +31,7 @@ fn main() {
 #[derive(Debug)]
 enum Error<'a> {
     Miniscript(MiniscriptError<'a>),
-    Satisfaction(SatisfactionError),
+    Satisfaction(SatisfyError),
 }
 
 fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
@@ -43,10 +43,33 @@ fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
     let satisfied = ctx
         .satisfy(&TestSatisfier {})
         .map_err(Error::Satisfaction)?;
-    println!("satisfied: {}", satisfied);
+    println!("satisfied: {:?}", satisfied);
     Ok(())
 }
 
 struct TestSatisfier {}
 
-impl Satisfier for TestSatisfier {}
+impl Satisfier for TestSatisfier {
+    fn check_older(&self, locktime: i64) -> Option<bool> {
+        None
+    }
+
+    fn check_after(&self, locktime: i64) -> Option<bool> {
+        None
+    }
+
+    fn sign(&self, pubkey: &tinyminiscript::parser::KeyType) -> Option<(Vec<u8>, bool)> {
+        match pubkey {
+            tinyminiscript::parser::KeyType::PublicKey(pubkey) => Some((Vec::new(), false)),
+            tinyminiscript::parser::KeyType::XOnlyPublicKey(pubkey) => Some((Vec::new(), false)),
+        }
+    }
+
+    fn preimage(
+        &self,
+        hash_func: tinyminiscript::satisfy::HashFunc,
+        hash: &[u8],
+    ) -> Option<(Vec<u8>, bool)> {
+        None
+    }
+}

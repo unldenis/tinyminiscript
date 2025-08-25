@@ -22,6 +22,7 @@ pub trait Satisfier {
     fn preimage(&self, hash_func: HashFunc, hash: &[u8]) -> Option<(Vec<u8>, bool)>;
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub enum HashFunc {
     Sha256,
     Ripemd160,
@@ -31,16 +32,18 @@ pub enum HashFunc {
 
 impl HashFunc {
     pub const fn expected_length(&self) -> usize {
-        match self {
-            HashFunc::Sha256 | HashFunc::Hash256 => 32,
-            HashFunc::Ripemd160 | HashFunc::Hash160 => 20,
-        }
+        // match self {
+        //     HashFunc::Sha256 | HashFunc::Hash256 => 32,
+        //     HashFunc::Ripemd160 | HashFunc::Hash160 => 20,
+        // }
+        32
     }
 }
 
 /// Satisfaction is a struct that represents a satisfaction of a miniscript expression.
 #[doc = bitcoin_definition_link!("8333aa5302902f6be929c30b3c2b4e91c6583224", "script/miniscript.h", 294)]
 #[derive(Clone)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub struct Satisfaction {
     pub witness: Witness,
     pub available: bool,
@@ -133,6 +136,7 @@ impl Satisfaction {
     }
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub struct Satisfactions {
     pub dsat: Satisfaction,
     pub sat: Satisfaction,
@@ -144,6 +148,7 @@ impl Satisfactions {
     }
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub enum SatisfyError {
     MissingSignature(KeyType),
     MissingLockTime(i64),
@@ -151,6 +156,7 @@ pub enum SatisfyError {
     InvalidPreimage(HashFunc),
 }
 
+/// Satisfy is a function that satisfies a miniscript expression.
 #[doc = bitcoin_definition_link!("8333aa5302902f6be929c30b3c2b4e91c6583224", "script/miniscript.h", 1186)]
 pub fn satisfy<'a>(
     ctx: &ParserContext<'a>,
@@ -191,7 +197,9 @@ pub fn satisfy<'a>(
                 .ok_or(SatisfyError::MissingSignature(key.clone()))?;
             Ok(Satisfactions::new(
                 zero().and(witness(&key.to_bytes())),
-                witness(sig.as_slice()).set_available(avail),
+                witness(sig.as_slice())
+                    .set_available(avail)
+                    .and(witness(&key.to_bytes())),
             ))
         }
         Fragment::Older { n } => {
