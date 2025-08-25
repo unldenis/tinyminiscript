@@ -156,6 +156,20 @@ pub enum SatisfyError {
     InvalidPreimage(HashFunc),
 }
 
+const EMPTY: Satisfaction = Satisfaction {
+    witness: Witness::new(),
+    available: true,
+    malleable: false,
+    has_sig: false,
+};
+
+const UNAVAILABLE: Satisfaction = Satisfaction {
+    witness: Witness::new(),
+    available: false,
+    malleable: false,
+    has_sig: false,
+};
+
 /// Satisfy is a function that satisfies a miniscript expression.
 #[doc = bitcoin_definition_link!("8333aa5302902f6be929c30b3c2b4e91c6583224", "script/miniscript.h", 1186)]
 pub fn satisfy<'a>(
@@ -165,23 +179,11 @@ pub fn satisfy<'a>(
 ) -> Result<Satisfactions, SatisfyError> {
     let zero = || Satisfaction::new(&[], true, false, false);
     let one = || Satisfaction::new(&[1], true, false, false);
-    let empty = || Satisfaction {
-        witness: Witness::new(),
-        available: true,
-        malleable: false,
-        has_sig: false,
-    };
-    let unavailable = || Satisfaction {
-        witness: Witness::new(),
-        available: false,
-        malleable: false,
-        has_sig: false,
-    };
     let witness = |w: &[u8]| Satisfaction::new(w, true, false, false);
 
     match &node.fragment {
-        Fragment::False => Ok(Satisfactions::new(empty(), unavailable())),
-        Fragment::True => Ok(Satisfactions::new(unavailable(), empty())),
+        Fragment::False => Ok(Satisfactions::new(EMPTY, UNAVAILABLE)),
+        Fragment::True => Ok(Satisfactions::new(UNAVAILABLE, EMPTY)),
         Fragment::PkK { key } => {
             let (sig, avail) = satisfier
                 .sign(key)
@@ -208,9 +210,9 @@ pub fn satisfy<'a>(
                 .ok_or(SatisfyError::MissingLockTime(*n))?;
 
             if avail {
-                Ok(Satisfactions::new(unavailable(), empty()))
+                Ok(Satisfactions::new(UNAVAILABLE, EMPTY))
             } else {
-                Ok(Satisfactions::new(unavailable(), unavailable()))
+                Ok(Satisfactions::new(UNAVAILABLE, UNAVAILABLE))
             }
         }
         Fragment::After { n } => {
@@ -219,9 +221,9 @@ pub fn satisfy<'a>(
                 .ok_or(SatisfyError::MissingLockTime(*n))?;
 
             if avail {
-                Ok(Satisfactions::new(unavailable(), empty()))
+                Ok(Satisfactions::new(UNAVAILABLE, EMPTY))
             } else {
-                Ok(Satisfactions::new(unavailable(), unavailable()))
+                Ok(Satisfactions::new(UNAVAILABLE, UNAVAILABLE))
             }
         }
         Fragment::Sha256 { h } => {
@@ -318,7 +320,7 @@ pub fn satisfy<'a>(
             let x = satisfy(ctx, satisfier, &ctx.get_node(*x))?;
             let z = satisfy(ctx, satisfier, &ctx.get_node(*z))?;
             Ok(Satisfactions::new(
-                unavailable(),
+                UNAVAILABLE,
                 x.sat.or(z.sat.and(x.dsat.clone())),
             ))
         }
@@ -350,7 +352,7 @@ pub fn satisfy<'a>(
             // In the loop below, these stacks are built up using a dynamic programming approach.
             // sats[0] starts off empty.
             let mut sats = Vec::new();
-            sats.push(empty());
+            sats.push(EMPTY);
 
             for i in 0..n {
                 // Introduce an alias for the i'th last satisfaction/dissatisfaction.
@@ -376,7 +378,7 @@ pub fn satisfy<'a>(
 
             // At this point, sats[k].sat is the best satisfaction for the overall thresh() node. The best dissatisfaction
             // is computed by gathering all sats[i].nsat for i != k.
-            let mut nsat = empty().set_available(false);
+            let mut nsat = EMPTY.set_available(false);
             for i in 0..sats.len() {
                 // i==k is the satisfaction; i==0 is the canonical dissatisfaction;
                 // the rest are non-canonical (a no-signature dissatisfaction - the i=0
@@ -450,7 +452,7 @@ pub fn satisfy<'a>(
                 crate::parser::IdentityType::D => {
                     Ok(Satisfactions::new(zero(), x_pair.sat.and(one())))
                 }
-                crate::parser::IdentityType::V => Ok(Satisfactions::new(unavailable(), x_pair.sat)),
+                crate::parser::IdentityType::V => Ok(Satisfactions::new(UNAVAILABLE, x_pair.sat)),
                 crate::parser::IdentityType::J => Ok(Satisfactions::new(
                     zero().set_malleable(x_pair.dsat.available && !x_pair.dsat.has_sig),
                     x_pair.sat,
@@ -463,7 +465,7 @@ pub fn satisfy<'a>(
             // sats[j] represents the best stack containing j valid signatures (out of the first i keys).
             // In the loop below, these stacks are built up using a dynamic programming approach.
             let mut sats = Vec::new();
-            sats.push(empty());
+            sats.push(EMPTY);
 
             for i in 0..n {
                 // Get the signature for the i'th key in reverse order (the signature for the first key needs to
