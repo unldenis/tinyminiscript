@@ -2,3 +2,6 @@
 
 # scripts
 analyze_miniscript
+
+.envrc
+.direnv
