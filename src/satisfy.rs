@@ -78,7 +78,7 @@ impl Satisfaction {
         self
     }
 
-    pub fn and(self, other: Self) -> Self {
+    pub fn and(&self, other: &Self) -> Self {
         Self {
             witness: Witness::from_slice(
                 self.witness
@@ -93,57 +93,62 @@ impl Satisfaction {
         }
     }
 
-    pub fn or(mut self, mut other: Self) -> Self {
+    pub fn or(&self, other: &Self) -> Self {
+        let mut _self = self.clone();
+        let mut _other = other.clone();
+
         // If only one (or neither) is valid, pick the other one.
-        if !self.available {
-            return other;
+        if !_self.available {
+            return _other;
         }
-        if !other.available {
-            return self;
+        if !_other.available {
+            return _self;
         }
         // If only one of the solutions has a signature, we must pick the other one.
-        if !self.has_sig && other.has_sig {
-            return self;
+        if !_self.has_sig && _other.has_sig {
+            return _self;
         }
-        if self.has_sig && !other.has_sig {
-            return other;
+        if _self.has_sig && !_other.has_sig {
+            return _other;
         }
         // If neither solution requires a signature, the result is inevitably malleable.
-        if !self.has_sig && !other.has_sig {
-            self.malleable = true;
-            other.malleable = true;
+        if !_self.has_sig && !_other.has_sig {
+            _self.malleable = true;
+            _other.malleable = true;
         } else {
             // If both options require a signature, prefer the non-malleable one.
-            if other.malleable && !self.malleable {
-                return self;
+            if _other.malleable && !_self.malleable {
+                return _self;
             }
-            if self.malleable && !other.malleable {
-                return other;
+            if _self.malleable && !_other.malleable {
+                return _other;
             }
         }
         // Both avaiable, pick smaller one.
-        if self.available && other.available {
-            if self.witness.size() <= other.witness.size() {
-                return self;
+        if _self.available && _other.available {
+            if _self.witness.size() <= _other.witness.size() {
+                return _self;
             }
-            return other;
+            return _other;
         }
         // If only one available, return that one. If both unavailable, the result is unavailable.
-        if self.available {
-            return self;
+        if _self.available {
+            return _self;
         }
-        return other;
+        return _other;
     }
 }
 
 #[cfg_attr(feature = "debug", derive(Debug))]
+
 pub struct Satisfactions {
     pub dsat: Satisfaction,
     pub sat: Satisfaction,
 }
 
 impl Satisfactions {
-    pub fn new(dsat: Satisfaction, sat: Satisfaction) -> Self {
+    #[inline]
+    pub const fn new(dsat: Satisfaction, sat: Satisfaction) -> Self {
         Self { dsat, sat }
     }
 }
@@ -198,10 +203,10 @@ pub fn satisfy<'a>(
                 .sign(key)
                 .ok_or(SatisfyError::MissingSignature(key.clone()))?;
             Ok(Satisfactions::new(
-                zero().and(witness(&key.to_bytes())),
+                zero().and(&witness(&key.to_bytes())),
                 witness(sig.as_slice())
                     .set_available(avail)
-                    .and(witness(&key.to_bytes())),
+                    .and(&witness(&key.to_bytes())),
             ))
         }
         Fragment::Older { n } => {
@@ -280,40 +285,35 @@ pub fn satisfy<'a>(
             let y = satisfy(ctx, satisfier, &ctx.get_node(*y))?;
             let z = satisfy(ctx, satisfier, &ctx.get_node(*z))?;
             Ok(Satisfactions::new(
-                z.dsat.and(x.dsat.clone()).or(y.dsat.and(x.sat.clone())),
-                y.sat.and(x.sat).or(z.sat.and(x.dsat)),
+                z.dsat.and(&x.dsat).or(&y.dsat.and(&x.sat)),
+                y.sat.and(&x.sat).or(&z.sat.and(&x.dsat)),
             ))
         }
         Fragment::AndV { x, y } => {
             let x = satisfy(ctx, satisfier, &ctx.get_node(*x))?;
             let y = satisfy(ctx, satisfier, &ctx.get_node(*y))?;
-            Ok(Satisfactions::new(
-                y.dsat.and(x.sat.clone()),
-                y.sat.and(x.sat),
-            ))
+            Ok(Satisfactions::new(y.dsat.and(&x.sat), y.sat.and(&x.sat)))
         }
         Fragment::AndB { x, y } => {
             let x = satisfy(ctx, satisfier, &ctx.get_node(*x))?;
             let y = satisfy(ctx, satisfier, &ctx.get_node(*y))?;
             Ok(Satisfactions::new(
                 y.dsat
-                    .clone()
-                    .and(x.dsat.clone())
-                    .or(y.sat.clone().and(x.dsat.clone()).set_malleable(true))
-                    .or(y.dsat.clone().and(x.sat.clone()).set_malleable(true)),
-                y.sat.and(x.sat),
+                    .and(&x.dsat)
+                    .or(&y.sat.and(&x.dsat).set_malleable(true))
+                    .or(&y.dsat.and(&x.sat).set_malleable(true)),
+                y.sat.and(&x.sat),
             ))
         }
         Fragment::OrB { x, z } => {
             let x = satisfy(ctx, satisfier, &ctx.get_node(*x))?;
             let z = satisfy(ctx, satisfier, &ctx.get_node(*z))?;
             Ok(Satisfactions::new(
-                z.dsat.clone().and(x.dsat.clone()),
+                z.dsat.and(&x.dsat),
                 z.dsat
-                    .clone()
-                    .and(x.sat.clone())
-                    .or(z.sat.clone().and(x.dsat.clone()))
-                    .or(z.sat.clone().and(x.sat.clone()).set_malleable(true)),
+                    .and(&x.sat)
+                    .or(&z.sat.and(&x.dsat))
+                    .or(&z.sat.and(&x.sat).set_malleable(true)),
             ))
         }
         Fragment::OrC { x, z } => {
@@ -321,23 +321,23 @@ pub fn satisfy<'a>(
             let z = satisfy(ctx, satisfier, &ctx.get_node(*z))?;
             Ok(Satisfactions::new(
                 UNAVAILABLE,
-                x.sat.or(z.sat.and(x.dsat.clone())),
+                x.sat.or(&z.sat.and(&x.dsat)),
             ))
         }
         Fragment::OrD { x, z } => {
             let x = satisfy(ctx, satisfier, &ctx.get_node(*x))?;
             let z = satisfy(ctx, satisfier, &ctx.get_node(*z))?;
             Ok(Satisfactions::new(
-                z.dsat.and(x.dsat.clone()),
-                x.sat.or(z.sat.and(x.dsat)),
+                z.dsat.and(&x.dsat),
+                x.sat.or(&z.sat.and(&x.dsat)),
             ))
         }
         Fragment::OrI { x, z } => {
             let x = satisfy(ctx, satisfier, &ctx.get_node(*x))?;
             let z = satisfy(ctx, satisfier, &ctx.get_node(*z))?;
             Ok(Satisfactions::new(
-                x.dsat.and(one()).or(z.dsat.and(zero())),
-                x.sat.and(one()).or(z.sat.and(zero())),
+                x.dsat.and(&one()).or(&z.dsat.and(&zero())),
+                x.sat.and(&one()).or(&z.sat.and(&zero())),
             ))
         }
         Fragment::Thresh { k, xs } => {
@@ -362,15 +362,12 @@ pub fn satisfy<'a>(
                 // so far. next_sats[j] is either sats[j] + res.nsat (reusing j earlier satisfactions) or sats[j-1] + res.sat
                 // (reusing j-1 earlier satisfactions plus a new one). The very last next_sats[j] is all satisfactions.
                 let mut next_sats = Vec::new();
-                next_sats.push(sats[0].clone().and(res.dsat.clone()));
+                next_sats.push(sats[0].and(&res.dsat));
 
                 for j in 1..sats.len() {
-                    next_sats.push(
-                        (sats[j].clone().and(res.dsat.clone()))
-                            .or(sats[j - 1].clone().and(res.sat.clone())),
-                    );
+                    next_sats.push((sats[j].and(&res.dsat)).or(&sats[j - 1].and(&res.sat)));
                 }
-                next_sats.push(sats[sats.len() - 1].clone().and(res.sat.clone()));
+                next_sats.push(sats[sats.len() - 1].and(&res.sat));
 
                 // Switch over.
                 sats = next_sats;
@@ -391,7 +388,7 @@ pub fn satisfy<'a>(
                 }
                 // Include all dissatisfactions (even these non-canonical ones) in nsat.
                 if i != *k as usize {
-                    nsat = nsat.or(sats[i].clone());
+                    nsat = nsat.or(&sats[i]);
                 }
             }
 
@@ -425,9 +422,9 @@ pub fn satisfy<'a>(
                 next_sats.push(sats[0].clone());
 
                 for j in 1..sats.len() {
-                    next_sats.push(sats[j].clone().or(sats[j - 1].clone().and(sat.clone())));
+                    next_sats.push(sats[j].or(&sats[j - 1].and(&sat)));
                 }
-                next_sats.push(sats[sats.len() - 1].clone().and(sat));
+                next_sats.push(sats[sats.len() - 1].and(&sat));
 
                 // Switch over.
                 sats = next_sats;
@@ -436,7 +433,7 @@ pub fn satisfy<'a>(
             // The dissatisfaction consists of k+1 stack elements all equal to 0.
             let mut nsat = zero();
             for _ in 0..*k {
-                nsat = nsat.and(zero());
+                nsat = nsat.and(&zero());
             }
 
             // Safety check: k should be valid
@@ -450,7 +447,7 @@ pub fn satisfy<'a>(
             let x_pair = satisfy(ctx, satisfier, &ctx.get_node(*x))?;
             match identity_type {
                 crate::parser::IdentityType::D => {
-                    Ok(Satisfactions::new(zero(), x_pair.sat.and(one())))
+                    Ok(Satisfactions::new(zero(), x_pair.sat.and(&one())))
                 }
                 crate::parser::IdentityType::V => Ok(Satisfactions::new(UNAVAILABLE, x_pair.sat)),
                 crate::parser::IdentityType::J => Ok(Satisfactions::new(
@@ -483,14 +480,12 @@ pub fn satisfy<'a>(
                 // next_sats[j] are equal to either the existing sats[j] + ZERO, or sats[j-1] plus a signature
                 // for the current (i'th) key. The very last element needs all signatures filled.
                 let mut next_sats = Vec::new();
-                next_sats.push(sats[0].clone().and(zero()));
+                next_sats.push(sats[0].and(&zero()));
 
                 for j in 1..sats.len() {
-                    next_sats.push(
-                        (sats[j].clone().and(zero())).or(sats[j - 1].clone().and(sat.clone())),
-                    );
+                    next_sats.push((sats[j].and(&zero())).or(&sats[j - 1].and(&sat)));
                 }
-                next_sats.push(sats[sats.len() - 1].clone().and(sat));
+                next_sats.push(sats[sats.len() - 1].and(&sat));
 
                 // Switch over.
                 sats = next_sats;
