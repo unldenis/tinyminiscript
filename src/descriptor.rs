@@ -30,16 +30,18 @@ impl Default for Descriptor {
     }
 }
 
-impl Descriptor {
-    #[inline]
-    pub fn from_fragment(fragment: &str) -> Self {
-        match fragment {
-            "pkh" => Descriptor::Pkh,
-            "sh" => Descriptor::Sh,
-            "wpkh" => Descriptor::Wpkh,
-            "wsh" => Descriptor::Wsh,
-            "tr" => Descriptor::Tr,
-            _ => Descriptor::Bare,
+pub struct InvalidDescriptor<'a>(&'a str);
+
+impl<'a> TryFrom<&'a str> for Descriptor {
+    type Error = InvalidDescriptor<'a>;
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        match value {
+            "pkh" => Ok(Descriptor::Pkh),
+            "sh" => Ok(Descriptor::Sh),
+            "wpkh" => Ok(Descriptor::Wpkh),
+            "wsh" => Ok(Descriptor::Wsh),
+            "tr" => Ok(Descriptor::Tr),
+            _ => Err(InvalidDescriptor(value)),
         }
     }
 }

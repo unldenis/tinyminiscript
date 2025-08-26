@@ -373,7 +373,10 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseErr
         context: "parse_descriptor",
     })?;
 
-    let descriptor = Descriptor::from_fragment(token);
+    let descriptor = Descriptor::try_from(token).map_err(|_| ParseError::UnexpectedToken {
+        expected: "descriptor",
+        found: (token, column),
+    })?;
 
     if ctx.top_level_descriptor.is_none() {
         ctx.top_level_descriptor = Some(descriptor.clone());
