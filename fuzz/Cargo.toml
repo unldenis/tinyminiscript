@@ -1,0 +1,22 @@
+[package]
+name = "tinyminiscript-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+miniscript = "12.3.5"
+
+[dependencies.tinyminiscript]
+path = ".."
+
+[[bin]]
+name = "parsing"
+path = "fuzz_targets/parsing.rs"
+test = false
+doc = false
+bench = false
