@@ -397,7 +397,7 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseErr
 
     // If the descriptor is bare, we need to parse the inner descriptor
     if descriptor == Descriptor::Bare {
-        let inner = parse_internal(ctx)?;
+        let inner = parse_internal(ctx, true)?;
         return Ok(AST {
             position: column,
             fragment: Fragment::Descriptor {
@@ -418,7 +418,7 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseErr
 
     // Standard descriptor parsing
     let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-    let inner = parse_internal(ctx)?;
+    let inner = parse_internal(ctx, true)?;
     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
     // should be no more tokens
@@ -458,26 +458,15 @@ fn parse_sh_descriptor<'a>(
     })
 }
 
-fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError<'a>> {
+fn parse_internal<'a>(
+    ctx: &mut ParserContext<'a>,
+    first_fragment: bool,
+) -> Result<AST<'a>, ParseError<'a>> {
     let (token, column) = ctx
         .peek_token()
         .ok_or(ParseError::UnexpectedEof { context: "parse" })?;
 
     match token {
-        "0" => {
-            ctx.next_token(); // Advance past "0"
-            Ok(AST {
-                position: column,
-                fragment: Fragment::False,
-            })
-        }
-        "1" => {
-            ctx.next_token(); // Advance past "1"
-            Ok(AST {
-                position: column,
-                fragment: Fragment::True,
-            })
-        }
         "pk_k" => {
             ctx.next_token(); // Advance past "pk_k"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
@@ -704,15 +693,15 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
 
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
 
-            let x = parse_internal(ctx)?;
+            let x = parse_internal(ctx, false)?;
 
             let (_comma, _comma_column) = ctx.expect_token(",")?;
 
-            let y = parse_internal(ctx)?;
+            let y = parse_internal(ctx, false)?;
 
             let (_comma, _comma_column) = ctx.expect_token(",")?;
 
-            let z = parse_internal(ctx)?;
+            let z = parse_internal(ctx, false)?;
 
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
@@ -729,9 +718,9 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
         "and_v" => {
             ctx.next_token(); // Advance past "and_v"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
+            let x = parse_internal(ctx, false)?;
             let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let y = parse_internal(ctx)?;
+            let y = parse_internal(ctx, false)?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -746,9 +735,9 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
         "and_b" => {
             ctx.next_token(); // Advance past "and_b"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
+            let x = parse_internal(ctx, false)?;
             let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let y = parse_internal(ctx)?;
+            let y = parse_internal(ctx, false)?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -765,9 +754,9 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
 
             ctx.next_token(); // Advance past "and_n"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
+            let x = parse_internal(ctx, false)?;
             let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let y = parse_internal(ctx)?;
+            let y = parse_internal(ctx, false)?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             let ast = AST {
@@ -787,9 +776,9 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
         "or_b" => {
             ctx.next_token(); // Advance past "or_b"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
+            let x = parse_internal(ctx, false)?;
             let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let z = parse_internal(ctx)?;
+            let z = parse_internal(ctx, false)?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -804,9 +793,9 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
         "or_c" => {
             ctx.next_token(); // Advance past "or_c"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
+            let x = parse_internal(ctx, false)?;
             let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let z = parse_internal(ctx)?;
+            let z = parse_internal(ctx, false)?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -821,9 +810,9 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
         "or_d" => {
             ctx.next_token(); // Advance past "or_d"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
+            let x = parse_internal(ctx, false)?;
             let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let z = parse_internal(ctx)?;
+            let z = parse_internal(ctx, false)?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -838,9 +827,9 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
         "or_i" => {
             ctx.next_token(); // Advance past "or_i"
             let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
+            let x = parse_internal(ctx, false)?;
             let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let z = parse_internal(ctx)?;
+            let z = parse_internal(ctx, false)?;
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             Ok(AST {
@@ -872,7 +861,7 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
                 } else if token == "," {
                     ctx.next_token();
                 }
-                let x = parse_internal(ctx)?;
+                let x = parse_internal(ctx, false)?;
                 xs.push(ctx.add_node(x));
             }
 
@@ -974,7 +963,7 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
 
                     // identity is a list of inner identities, eg av:X
 
-                    let mut node: AST = parse_internal(ctx)?;
+                    let mut node: AST = parse_internal(ctx, false)?;
 
                     for id_type in token.chars().rev() {
                         if id_type == 'a'
@@ -1044,12 +1033,46 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError
 
                     return Ok(node);
                 }
+
+                // the first fragment cant be a bool like tr(0)
+                if !first_fragment {
+                    return parse_bool(ctx);
+                }
             }
 
             Err(ParseError::UnexpectedToken {
-                expected: "0 or 1 or pk_k or pk_h or pk or pkh or older or after or sha256 or hash256 or ripemd160 or hash160 or andor or and_v or and_b or and_n or or_b or or_c or or_d or or_i or thresh or multi or multi_a or a:pk_k(key) or v:pk_k(key) or c:pk_k(key) or d:pk_k(key) or s:pk_k(key) or j:pk_k(key) or n:pk_k(key)",
+                expected: "pk_k or pk_h or pk or pkh or older or after or sha256 or hash256 or ripemd160 or hash160 or andor or and_v or and_b or and_n or or_b or or_c or or_d or or_i or thresh or multi or multi_a or a:pk_k(key) or v:pk_k(key) or c:pk_k(key) or d:pk_k(key) or s:pk_k(key) or j:pk_k(key) or n:pk_k(key)",
                 found: (token, column),
             })
+        }
+    }
+}
+
+fn parse_bool<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError<'a>> {
+    let (token, column) = ctx.peek_token().ok_or(ParseError::UnexpectedEof {
+        context: "parse_bool",
+    })?;
+
+    match token {
+        "0" => {
+            ctx.next_token();
+            Ok(AST {
+                position: column,
+                fragment: Fragment::False,
+            })
+        }
+        "1" => {
+            ctx.next_token();
+            Ok(AST {
+                position: column,
+                fragment: Fragment::True,
+            })
+        }
+        _ => {
+            return Err(ParseError::UnexpectedToken {
+                expected: "0 or 1",
+                found: (token, column),
+            });
         }
     }
 }

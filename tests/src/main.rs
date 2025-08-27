@@ -16,7 +16,8 @@ fn main() {
         format!("or_d(pk({}),pk({}))", pub_key, pub_key),
       //  "l:0p0n#:0pnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn0wnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnn:0".to_string()
         "1".to_string(),
-        "tr(0):".to_string(),
+        format!("tr(pk({})):", x_only),
+        "tr(0)".to_string(),
     ];
 
     for script in scripts {
