@@ -1,5 +1,3 @@
-mod ast_printer;
-
 use std::str::FromStr;
 
 use bitcoin::{PublicKey, XOnlyPublicKey};
@@ -17,7 +15,8 @@ fn main() {
         "wsh(multi(1,022f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4,025cbdf0646e5db4eaa398f365f2ea7a0e3d419b7e0330e39ce92bddedcac4f9bc))".to_string(),
         format!("or_d(pk({}),pk({}))", pub_key, pub_key),
       //  "l:0p0n#:0pnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn0wnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnn:0".to_string()
-        "1".to_string()
+        "1".to_string(),
+        "tr(0):".to_string(),
     ];
 
     for script in scripts {
@@ -37,12 +36,11 @@ enum Error<'a> {
 }
 
 fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
-    let mut ast_printer = ast_printer::ASTPrinter::new();
     let (ctx, script_buf) = tinyminiscript::parse_script(script).map_err(Error::Miniscript)?;
-    println!("ast: {}", ast_printer.print_ast(&ctx));
+    println!("ast: {}", ctx.print_ast());
     println!("bitcoin script: {:?}", script_buf.to_asm_string());
 
-    if false {
+    if true {
         let satisfied = ctx
             .satisfy(&TestSatisfier {})
             .map_err(Error::Satisfaction)?;

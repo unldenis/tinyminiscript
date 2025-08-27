@@ -30,6 +30,10 @@
 #![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "debug")]
+/// AST printer
+mod ast_printer;
+
 /// Bitcoin descriptor parsing and validation
 pub mod descriptor;
 /// Miniscript parser and AST representation

@@ -249,6 +249,9 @@ pub enum ParseError<'a> {
         key: &'a str,
         position: Position,
     },
+    UnexpectedTrailingToken {
+        found: (&'a str, Position),
+    },
 }
 
 pub struct ParserContext<'a> {
@@ -356,6 +359,15 @@ impl<'a> ParserContext<'a> {
     pub fn satisfy(&self, satisfier: &dyn Satisfier) -> Result<Satisfactions, SatisfyError> {
         satisfy::satisfy(self, satisfier, &self.get_root())
     }
+
+    #[cfg(feature = "debug")]
+    /// Returns a tree representation of the AST.
+    pub fn print_ast(&self) -> alloc::string::String {
+        use crate::ast_printer;
+
+        let mut ast_printer = ast_printer::ASTPrinter::new();
+        ast_printer.print_ast(self)
+    }
 }
 
 #[inline]
@@ -408,6 +420,14 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseErr
     let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
     let inner = parse_internal(ctx)?;
     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+
+    // should be no more tokens
+    let next_token = ctx.peek_token();
+    if next_token.is_some() {
+        return Err(ParseError::UnexpectedTrailingToken {
+            found: next_token.unwrap(),
+        });
+    }
 
     Ok(AST {
         position: column,

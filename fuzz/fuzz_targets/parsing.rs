@@ -18,16 +18,12 @@ fuzz_target!(|data: &[u8]| {
 
     match (ms_descriptor, ts_descriptor) {
         (Ok(_), Ok(_)) => {}
-        // TODO: this should be removed when issue #1 is fixed
-        (Err(e), Ok((ctx, _))) if matches!(&ctx.get_root().fragment, Fragment::Descriptor { descriptor: Bare, .. }) => {
-            return;
-        }
-        (Err(e), Ok((ctx, _))) if matches!(&ctx.get_root().fragment, Fragment::Descriptor { .. }) => {
-            dbg!(&ctx.get_root());
-            panic!("Invalid descriptor accepted: {} (expected error {:?})", script, e);
+        (Err(e), Ok((ctx, _))) => {
+            println!("AST:{}", ctx.print_ast());
+            panic!("Invalid descriptor accepted: '{}' (expected error {:?})", script, e);
         }
         (Ok(_), Err(e)) => {
-            panic!("Valid descriptor rejected: {} (got error {:?})", script, e);
+            panic!("Valid descriptor rejected: '{}' (got error {:?})", script, e);
         }
         _ => return,
     }

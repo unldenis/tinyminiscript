@@ -1,15 +1,15 @@
-// AST Printer
+use alloc::{format, string::String};
 
-use std::collections::HashMap;
-use tinyminiscript::parser::{AST, Fragment, ParserContext};
+use crate::parser::{AST, Fragment, ParserContext};
 
+/// AST printer for debugging.
 pub struct ASTPrinter {
     indent_level: usize,
     output: String,
 }
 
 impl ASTPrinter {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             indent_level: 0,
             output: String::new(),
