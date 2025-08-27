@@ -103,11 +103,8 @@ impl Satisfier for TestSatisfier {
         None
     }
 
-    fn sign(&self, pubkey: &tinyminiscript::parser::KeyType) -> Option<(Vec<u8>, bool)> {
-        match pubkey {
-            tinyminiscript::parser::KeyType::PublicKey(pubkey) => Some((Vec::new(), false)),
-            tinyminiscript::parser::KeyType::XOnlyPublicKey(pubkey) => Some((Vec::new(), false)),
-        }
+    fn sign(&self, pubkey: &dyn tinyminiscript::parser::KeyTypeTrait) -> Option<(Vec<u8>, bool)> {
+        Some((Vec::new(), false))
     }
 
     fn preimage(

@@ -49,6 +49,8 @@ pub mod script;
 /// Type checking and correctness property validation
 pub mod type_checker;
 
+pub use bitcoin;
+
 pub extern crate alloc;
 pub(crate) type Vec<T> = alloc::vec::Vec<T>;
 

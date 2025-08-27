@@ -1,10 +1,14 @@
 use core::str::FromStr;
+use alloc::boxed::Box;
+use alloc::string::String;
 
 use crate::{
     Vec,
     descriptor::Descriptor,
     satisfy::{self, Satisfactions, Satisfier, SatisfyError},
 };
+
+use bitcoin::{hashes::Hash, script::Builder, PubkeyHash};
 
 // AST Visitor
 
@@ -51,9 +55,9 @@ pub enum Fragment<'a> {
 
     // Key Fragments
     /// pk_k(key)
-    PkK { key: KeyType },
+    PkK { key: Box<dyn KeyTypeTrait> },
     /// pk_h(key)
-    PkH { key: KeyType },
+    PkH { key: Box<dyn KeyTypeTrait> },
 
     // Time fragments
     /// older(n)
@@ -120,6 +124,77 @@ pub enum Fragment<'a> {
         descriptor: Descriptor,
         inner: NodeIndex,
     },
+}
+
+pub trait KeyTypeTrait: core::fmt::Debug {
+    fn is_compressed(&self) -> bool;
+    fn to_bytes(&self) -> Vec<u8>;
+    fn identifier(&self) -> String;
+    fn push_to_script(&self, builder: Builder) -> Builder;
+    fn pubkey_hash(&self) -> PubkeyHash;
+}
+
+impl KeyTypeTrait for bitcoin::PublicKey {
+    fn is_compressed(&self) -> bool {
+        self.compressed
+    }
+    fn to_bytes(&self) -> Vec<u8> {
+        bitcoin::PublicKey::to_bytes(*self)
+    }
+    fn identifier(&self) -> String {
+        use alloc::string::ToString;
+        self.to_string()
+    }
+    fn push_to_script(&self, builder: Builder) -> Builder {
+        builder.push_key(self)
+    }
+    fn pubkey_hash(&self) -> PubkeyHash {
+        self.pubkey_hash()
+    }
+}
+
+impl KeyTypeTrait for bitcoin::XOnlyPublicKey {
+    fn is_compressed(&self) -> bool {
+        true
+    }
+    fn to_bytes(&self) -> Vec<u8> {
+        self.serialize().to_vec()
+    }
+    fn identifier(&self) -> String {
+        use alloc::string::ToString;
+        self.to_string()
+    }
+    fn push_to_script(&self, builder: Builder) -> Builder {
+        builder.push_x_only_key(self)
+    }
+    fn pubkey_hash(&self) -> PubkeyHash {
+        PubkeyHash::hash(&self.serialize().to_vec())
+    }
+}
+
+pub fn parse_key<'a>(
+    token: (&'a str, Position),
+    descriptor: &Descriptor,
+) -> Result<Box<dyn KeyTypeTrait>, ParseError<'a>> {
+    // Get the key type based on the inner descriptor
+    let key = match descriptor {
+        Descriptor::Tr => {
+            Box::new(bitcoin::XOnlyPublicKey::from_str(token.0).map_err(
+                |_| ParseError::InvalidXOnlyKey {
+                    key: token.0,
+                    position: token.1,
+                },
+            )?) as Box<dyn KeyTypeTrait>
+        }
+        _ => Box::new(bitcoin::PublicKey::from_str(token.0).map_err(|e| {
+            ParseError::InvalidKey {
+                key: token.0,
+                position: token.1,
+                inner: e,
+            }
+        })?) as Box<dyn KeyTypeTrait>
+    };
+    Ok(key)
 }
 
 #[derive(Clone)]
@@ -485,7 +560,7 @@ fn parse_internal<'a>(
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             // Get the key type based on the inner descriptor
-            let key = KeyType::parse(key_token, &ctx.inner_descriptor)?;
+            let key = parse_key(key_token, &ctx.inner_descriptor)?;
 
             Ok(AST {
                 position: column,
@@ -502,7 +577,7 @@ fn parse_internal<'a>(
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             // Get the key type based on the inner descriptor
-            let key = KeyType::parse(key_token, &ctx.inner_descriptor)?;
+            let key = parse_key(key_token, &ctx.inner_descriptor)?;
 
             Ok(AST {
                 position: column,
@@ -521,7 +596,7 @@ fn parse_internal<'a>(
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             // Get the key type based on the inner descriptor
-            let key = KeyType::parse((key, key_column), &ctx.inner_descriptor)?;
+            let key = parse_key((key, key_column), &ctx.inner_descriptor)?;
 
             let mut ast = AST {
                 position: column,
@@ -550,7 +625,7 @@ fn parse_internal<'a>(
             let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
             // Get the key type based on the inner descriptor
-            let key = KeyType::parse(key_token, &ctx.inner_descriptor)?;
+            let key = parse_key(key_token, &ctx.inner_descriptor)?;
 
             let mut ast = AST {
                 position: column,

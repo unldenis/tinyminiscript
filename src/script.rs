@@ -60,17 +60,11 @@ impl<'a> ScriptBuilder<'a> {
                 Ok(builder)
             }
             Fragment::PkK { key } => {
-                builder = match &key {
-                    KeyType::PublicKey(k) => builder.push_key(k),
-                    KeyType::XOnlyPublicKey(k) => builder.push_x_only_key(k),
-                };
+                builder = key.push_to_script(builder);
                 Ok(builder)
             }
             Fragment::PkH { key } => {
-                let hash: PubkeyHash = match &key {
-                    KeyType::PublicKey(k) => k.pubkey_hash(),
-                    KeyType::XOnlyPublicKey(k) => PubkeyHash::hash(&k.serialize()),
-                };
+                let hash: PubkeyHash = key.pubkey_hash();
 
                 builder = builder
                     .push_opcode(opcodes::all::OP_DUP)

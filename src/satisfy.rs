@@ -1,8 +1,9 @@
+use core::ops::Deref;
+
 use bitcoin::Witness;
 
 use crate::{
-    Vec, bitcoin_definition_link,
-    parser::{AST, Fragment, KeyType, ParserContext},
+    bitcoin_definition_link, parser::{Fragment, KeyType, KeyTypeTrait, ParserContext, AST}, Vec
 };
 
 pub trait Satisfier {
@@ -15,7 +16,7 @@ pub trait Satisfier {
     fn check_after(&self, locktime: i64) -> Option<bool>;
 
     /// Sign generates a signature for the given public key.
-    fn sign(&self, pubkey: &KeyType) -> Option<(Vec<u8>, bool)>;
+    fn sign(&self, pubkey: &dyn KeyTypeTrait) -> Option<(Vec<u8>, bool)>;
 
     /// Preimage returns the preimage of the hash value. hashFunc is one of "sha256", "ripemd160",
     /// "hash256", "hash160".
@@ -155,7 +156,7 @@ impl Satisfactions {
 
 #[cfg_attr(feature = "debug", derive(Debug))]
 pub enum SatisfyError {
-    MissingSignature(KeyType),
+    MissingSignature(alloc::string::String),
     MissingLockTime(i64),
     MissingPreimage(HashFunc),
     InvalidPreimage(HashFunc),
@@ -191,8 +192,8 @@ pub fn satisfy<'a>(
         Fragment::True => Ok(Satisfactions::new(UNAVAILABLE, EMPTY)),
         Fragment::PkK { key } => {
             let (sig, avail) = satisfier
-                .sign(key)
-                .ok_or(SatisfyError::MissingSignature(key.clone()))?;
+                .sign(key.deref())
+                .ok_or(SatisfyError::MissingSignature(key.identifier()))?;
             Ok(Satisfactions::new(
                 zero(),
                 witness(sig.as_slice()).with_sig().set_available(avail),
@@ -200,8 +201,8 @@ pub fn satisfy<'a>(
         }
         Fragment::PkH { key } => {
             let (sig, avail) = satisfier
-                .sign(key)
-                .ok_or(SatisfyError::MissingSignature(key.clone()))?;
+                .sign(key.deref())
+                .ok_or(SatisfyError::MissingSignature(key.identifier()))?;
             Ok(Satisfactions::new(
                 zero().and(&witness(&key.to_bytes())),
                 witness(sig.as_slice())
@@ -407,10 +408,9 @@ pub fn satisfy<'a>(
             sats.push(zero());
 
             for i in 0..keys.len() {
-                let key_type = KeyType::PublicKey(keys[i].clone());
                 let (sig, avail) = satisfier
-                    .sign(&key_type)
-                    .ok_or(SatisfyError::MissingSignature(key_type.clone()))?;
+                    .sign(&keys[i])
+                    .ok_or(SatisfyError::MissingSignature(keys[i].identifier()))?;
 
                 // Compute signature stack for just the i'th key.
                 let sat = witness(&sig).with_sig().set_available(avail);
@@ -468,10 +468,10 @@ pub fn satisfy<'a>(
                 // Get the signature for the i'th key in reverse order (the signature for the first key needs to
                 // be at the top of the stack, contrary to CHECKMULTISIG's satisfaction).
                 let key_idx = n - 1 - i;
-                let key_type = KeyType::XOnlyPublicKey(keys[key_idx].clone());
+                let key_type = keys[key_idx].clone();
                 let (sig, avail) = satisfier
                     .sign(&key_type)
-                    .ok_or(SatisfyError::MissingSignature(key_type.clone()))?;
+                    .ok_or(SatisfyError::MissingSignature(key_type.identifier()))?;
 
                 // Compute signature stack for just this key.
                 let sat = witness(&sig).with_sig().set_available(avail);
@@ -497,9 +497,7 @@ pub fn satisfy<'a>(
 
             // Safety check: k should be valid
             if *k <= 0 || *k as usize >= sats.len() {
-                return Err(SatisfyError::MissingSignature(KeyType::XOnlyPublicKey(
-                    keys[0].clone(),
-                )));
+                return Err(SatisfyError::MissingSignature(keys[0].identifier()));
             }
 
             Ok(Satisfactions::new(nsat, sats[*k as usize].clone()))
