@@ -252,6 +252,10 @@ pub enum ParseError<'a> {
     UnexpectedTrailingToken {
         found: (&'a str, Position),
     },
+    InvalidIdentityType {
+        found: char,
+        position: Position,
+    },
 }
 
 pub struct ParserContext<'a> {
@@ -1028,6 +1032,12 @@ fn parse_internal<'a>(
                                     }),
                                 },
                             }
+                        } else {
+                            // invalid identity type
+                            return Err(ParseError::InvalidIdentityType {
+                                found: id_type,
+                                position: column,
+                            });
                         }
                     }
 
