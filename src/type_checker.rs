@@ -80,6 +80,9 @@ pub enum CorrectnessPropertiesVisitorError {
     EmptyThreshold {
         position: Position,
     },
+    NonZeroZero {
+        position: Position,
+    },
 }
 
 impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
@@ -729,6 +732,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
                                 reason: "j:X: X must be type B (Base)",
                                 found: x_type.base_type(),
+                                position: node.position,
+                            });
+                        }
+
+                        if !x_type.has_property(PROPERTY_N) {
+                            return Err(CorrectnessPropertiesVisitorError::NonZeroZero {
                                 position: node.position,
                             });
                         }
