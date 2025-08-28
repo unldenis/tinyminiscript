@@ -1045,7 +1045,7 @@ fn parse_internal<'a>(
                 }
 
                 // the first fragment cant be a bool like tr(0)
-                if !first_fragment {
+                if !first_fragment || ctx.inner_descriptor != Descriptor::Tr {
                     return parse_bool(ctx);
                 }
             }

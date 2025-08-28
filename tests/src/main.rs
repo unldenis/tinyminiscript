@@ -18,6 +18,7 @@ fn main() {
         "1".to_string(),
         format!("tr(pk({})):", x_only),
         "tr(0)".to_string(),
+        "sh(1)".to_string(),
         "tr(aq:0)".to_string(),
     ];
 
@@ -42,12 +43,12 @@ fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
     println!("ast: {}", ctx.print_ast());
     println!("bitcoin script: {:?}", script_buf.to_asm_string());
 
-    println!("nodes: {:?}", ctx.nodes);
+    //println!("nodes: {:?}", ctx.nodes);
     if true {
         let satisfied = ctx
             .satisfy(&TestSatisfier {})
             .map_err(Error::Satisfaction)?;
-        println!("satisfied: {:?}", satisfied);
+        println!("satisfied: {:?}", satisfied.sat);
     }
 
     Ok(())
