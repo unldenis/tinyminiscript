@@ -995,7 +995,7 @@ fn parse_internal<'a>(
                                 _ => continue,
                             };
 
-                            if identity_type == IdentityType::V && first_fragment {
+                            if (identity_type == IdentityType::V || identity_type == IdentityType::N) && first_fragment {
                                 return Err(ParseError::InvalidTopLevelIdentity {
                                     found: id_type,
                                     position: column,
