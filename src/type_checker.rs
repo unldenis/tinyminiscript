@@ -83,6 +83,9 @@ pub enum CorrectnessPropertiesVisitorError {
     NonZeroZero {
         position: Position,
     },
+    SwapNonOne {
+        position: Position,
+    },
 }
 
 impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
@@ -643,6 +646,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
                                 reason: "s:X: X must be type B (Base)",
                                 found: x_type.base_type(),
+                                position: node.position,
+                            });
+                        }
+
+                        if !x_type.has_property(PROPERTY_O) {
+                            return Err(CorrectnessPropertiesVisitorError::SwapNonOne {
                                 position: node.position,
                             });
                         }
