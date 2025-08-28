@@ -19,7 +19,7 @@ fn main() {
         format!("tr(pk({})):", x_only),
         "tr(0)".to_string(),
         "sh(1)".to_string(),
-        "tr(aq:0)".to_string(),
+        "tr(n:0)".to_string(),
     ];
 
     for script in scripts {

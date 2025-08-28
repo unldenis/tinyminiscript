@@ -181,6 +181,7 @@ impl KeyType {
 }
 
 #[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(PartialEq)]
 pub enum IdentityType {
     A,
     S,
@@ -253,6 +254,10 @@ pub enum ParseError<'a> {
         found: (&'a str, Position),
     },
     InvalidIdentityType {
+        found: char,
+        position: Position,
+    },
+    InvalidTopLevelIdentity {
         found: char,
         position: Position,
     },
@@ -957,7 +962,8 @@ fn parse_internal<'a>(
         }
 
         _ => {
-            // check if is identity
+
+            // the top fragment cant be an identity
 
             if let Some((peek_token, _peek_token_column)) = ctx.peek_next_token() {
                 if peek_token == ":" {
@@ -988,6 +994,13 @@ fn parse_internal<'a>(
                                 'n' => IdentityType::N,
                                 _ => continue,
                             };
+
+                            if identity_type == IdentityType::V && first_fragment {
+                                return Err(ParseError::InvalidTopLevelIdentity {
+                                    found: id_type,
+                                    position: column,
+                                });
+                            }
 
                             node = AST {
                                 position: column,
@@ -1043,11 +1056,12 @@ fn parse_internal<'a>(
 
                     return Ok(node);
                 }
-
-                // the first fragment cant be a bool like tr(0)
-                if !first_fragment || ctx.inner_descriptor != Descriptor::Tr {
-                    return parse_bool(ctx);
-                }
+            }
+        
+           
+            // the top fragment cant be a bool like tr(0)
+            if !first_fragment || ctx.inner_descriptor != Descriptor::Tr {
+                return parse_bool(ctx);
             }
 
             Err(ParseError::UnexpectedToken {
