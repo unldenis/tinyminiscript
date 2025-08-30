@@ -257,6 +257,9 @@ pub enum ParseError<'a> {
         found: char,
         position: Position,
     },
+    MultiColon {
+        position: Position,
+    },
 }
 
 pub struct ParserContext<'a> {
@@ -966,6 +969,17 @@ fn parse_internal<'a>(
                     ctx.next_token(); // Advance past identity type
 
                     ctx.expect_token(":")?;
+
+
+                    // multi colon is not allowed
+                    // example: sh(uuuuuuuuuuuuuu:uuuuuu:1)
+                    if let Some((peek_token, peek_token_column)) = ctx.peek_next_token() {
+                        if peek_token == ":" {
+                            return Err(ParseError::MultiColon {
+                                position: peek_token_column,
+                            });
+                        }
+                    }
 
                     // identity is a list of inner identities, eg av:X
 
