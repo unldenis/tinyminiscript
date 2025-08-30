@@ -22,6 +22,7 @@ fn main() {
         "tr(n:0)".to_string(),
         "sh(j:1)".to_string(),
         "sh(s:1)".to_string(),
+        "sh(vuuuu:1)".to_string(),
     ];
 
     for script in scripts {

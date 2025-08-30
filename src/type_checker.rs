@@ -86,6 +86,9 @@ pub enum CorrectnessPropertiesVisitorError {
     SwapNonOne {
         position: Position,
     },
+    NonTopLevel {
+        position: Position,
+    }
 }
 
 impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
@@ -801,6 +804,13 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 inner,
             } => {
                 let inner_type = self.visit_ast_by_index(ctx, *inner)?;
+
+                // Check whether the top-level is type B
+                if inner_type.base_type() != MINISCRIPT_TYPE_B {
+                    return Err(CorrectnessPropertiesVisitorError::NonTopLevel {
+                        position: node.position,
+                    });
+                }
                 Ok(inner_type)
             }
         }

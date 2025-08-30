@@ -257,10 +257,6 @@ pub enum ParseError<'a> {
         found: char,
         position: Position,
     },
-    InvalidTopLevelIdentity {
-        found: char,
-        position: Position,
-    },
 }
 
 pub struct ParserContext<'a> {
@@ -995,12 +991,13 @@ fn parse_internal<'a>(
                                 _ => continue,
                             };
 
-                            if (identity_type == IdentityType::V || identity_type == IdentityType::N) && first_fragment {
-                                return Err(ParseError::InvalidTopLevelIdentity {
-                                    found: id_type,
-                                    position: column,
-                                });
-                            }
+                            // if (identity_type == IdentityType::V || identity_type == IdentityType::N || identity_type == IdentityType::A) && first_fragment 
+                            // && ctx.inner_descriptor == Descriptor::Tr {
+                            //     return Err(ParseError::InvalidTopLevelIdentity {
+                            //         found: id_type,
+                            //         position: column,
+                            //     });
+                            // }
 
                             node = AST {
                                 position: column,
