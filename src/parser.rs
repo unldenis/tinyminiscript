@@ -983,7 +983,7 @@ fn parse_internal<'a>(
 
                     // identity is a list of inner identities, eg av:X
 
-                    let mut node: AST = parse_internal(ctx, false)?;
+                    let mut node: AST = parse_internal(ctx, first_fragment)?;
 
                     for id_type in token.chars().rev() {
                         if id_type == 'a'
@@ -1004,14 +1004,6 @@ fn parse_internal<'a>(
                                 'n' => IdentityType::N,
                                 _ => continue,
                             };
-
-                            // if (identity_type == IdentityType::V || identity_type == IdentityType::N || identity_type == IdentityType::A) && first_fragment 
-                            // && ctx.inner_descriptor == Descriptor::Tr {
-                            //     return Err(ParseError::InvalidTopLevelIdentity {
-                            //         found: id_type,
-                            //         position: column,
-                            //     });
-                            // }
 
                             node = AST {
                                 position: column,
@@ -1070,7 +1062,7 @@ fn parse_internal<'a>(
             }
         
            
-            // the top fragment cant be a bool like tr(0)
+            // the top fragment cant be a bool
             if !first_fragment || ctx.inner_descriptor != Descriptor::Tr {
                 return parse_bool(ctx);
             }
