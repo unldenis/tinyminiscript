@@ -1,5 +1,17 @@
 use crate::parser::{AST, ASTVisitor, Fragment, IdentityType, ParserContext, Position};
 
+/// The size of an encoding of a number in Script
+pub fn script_num_size(n: usize) -> usize {
+    match n {
+        n if n <= 0x10 => 1,      // OP_n
+        n if n < 0x80 => 2,       // OP_PUSH1 <n>
+        n if n < 0x8000 => 3,     // OP_PUSH2 <n>
+        n if n < 0x800000 => 4,   // OP_PUSH3 <n>
+        n if n < 0x80000000 => 5, // OP_PUSH4 <n>
+        _ => 6,                   // OP_PUSH5 <n>
+    }
+}
+
 // Miniscript Types as bit flags
 
 /// Base
@@ -23,14 +35,21 @@ pub const PROPERTY_U: u8 = 1 << 4;
 pub struct TypeInfo {
     base_type: u8,
     properties: u8,
+
+    /// The number of bytes needed to encode its scriptpubkey
+    pub(crate) pk_cost: usize,
+    /// Whether this fragment can be verify-wrapped for free
+    has_free_verify: bool,
 }
 
 impl TypeInfo {
     #[inline]
-    pub const fn new(base_type: u8, properties: u8) -> Self {
+    pub const fn new(base_type: u8, properties: u8, pk_cost: usize, has_free_verify: bool) -> Self {
         Self {
             base_type,
             properties,
+            pk_cost,
+            has_free_verify: false,
         }
     }
 
@@ -88,7 +107,7 @@ pub enum CorrectnessPropertiesVisitorError {
     },
     NonTopLevel {
         position: Position,
-    }
+    },
 }
 
 impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
@@ -103,35 +122,64 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
             Fragment::False => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_Z | PROPERTY_U | PROPERTY_D,
+                1,
+                false,
             )),
-            Fragment::True => Ok(TypeInfo::new(MINISCRIPT_TYPE_B, PROPERTY_Z | PROPERTY_U)),
+            Fragment::True => Ok(TypeInfo::new(
+                MINISCRIPT_TYPE_B,
+                PROPERTY_Z | PROPERTY_U,
+                1,
+                false,
+            )),
             Fragment::PkK { key } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_K,
                 PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
+                34,
+                false,
             )),
             Fragment::PkH { key } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_K,
                 PROPERTY_N | PROPERTY_D | PROPERTY_U,
+                24,
+                false,
             )),
             // Fragment::Pk { key } => Ok(TypeInfo::new(MINISCRIPT_TYPE_K)),
             // Fragment::Pkh { key } => Ok(TypeInfo::new(MINISCRIPT_TYPE_K)),
-            Fragment::Older { n } => Ok(TypeInfo::new(MINISCRIPT_TYPE_B, PROPERTY_Z)),
-            Fragment::After { n } => Ok(TypeInfo::new(MINISCRIPT_TYPE_B, PROPERTY_Z)),
+            Fragment::Older { n } => Ok(TypeInfo::new(
+                MINISCRIPT_TYPE_B,
+                PROPERTY_Z,
+                script_num_size(*n as usize) + 1,
+                false,
+            )),
+            Fragment::After { n } => Ok(TypeInfo::new(
+                MINISCRIPT_TYPE_B,
+                PROPERTY_Z,
+                script_num_size(*n as usize) + 1,
+                false,
+            )),
             Fragment::Sha256 { h } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
+                33 + 6,
+                true,
             )),
             Fragment::Hash256 { h } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
+                33 + 6,
+                true,
             )),
             Fragment::Ripemd160 { h } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
+                21 + 6,
+                true,
             )),
             Fragment::Hash160 { h } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
+                21 + 6,
+                true,
             )),
 
             Fragment::AndOr { x, y, z } => {
@@ -200,7 +248,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties |= PROPERTY_D;
                 }
 
-                Ok(TypeInfo::new(y_type.base_type(), properties))
+                Ok(TypeInfo::new(
+                    y_type.base_type(),
+                    properties,
+                    x_type.pk_cost + y_type.pk_cost + z_type.pk_cost + 3,
+                    false,
+                ))
             }
             Fragment::AndV { x, y } => {
                 // X is V; Y is B, K, or V
@@ -246,7 +299,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties |= PROPERTY_U;
                 }
 
-                Ok(TypeInfo::new(y_type.base_type(), properties))
+                Ok(TypeInfo::new(
+                    y_type.base_type(),
+                    properties,
+                    x_type.pk_cost + y_type.pk_cost,
+                    y_type.has_free_verify,
+                ))
             }
             Fragment::AndB { x, y } => {
                 // X is B; Y is W
@@ -292,7 +350,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 }
                 properties |= PROPERTY_U;
 
-                Ok(TypeInfo::new(MINISCRIPT_TYPE_B, properties))
+                Ok(TypeInfo::new(
+                    MINISCRIPT_TYPE_B,
+                    properties,
+                    x_type.pk_cost + y_type.pk_cost + 1,
+                    false,
+                ))
             }
             // Fragment::AndN { x, y } => Ok(TypeInfo::new(MINISCRIPT_TYPE_B)),
             Fragment::OrB { x, z } => {
@@ -347,7 +410,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 properties |= PROPERTY_D;
                 properties |= PROPERTY_U;
 
-                Ok(TypeInfo::new(MINISCRIPT_TYPE_B, properties))
+                Ok(TypeInfo::new(
+                    MINISCRIPT_TYPE_B,
+                    properties,
+                    x_type.pk_cost + z_type.pk_cost + 1,
+                    false,
+                ))
             }
             Fragment::OrC { x, z } => {
                 // X is Bdu; Z is V
@@ -388,7 +456,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 if x_type.has_property(PROPERTY_O) && z_type.has_property(PROPERTY_Z) {
                     properties |= PROPERTY_O;
                 }
-                Ok(TypeInfo::new(MINISCRIPT_TYPE_V, properties))
+                Ok(TypeInfo::new(
+                    MINISCRIPT_TYPE_V,
+                    properties,
+                    x_type.pk_cost + z_type.pk_cost + 2,
+                    false,
+                ))
             }
             Fragment::OrD { x, z } => {
                 // X is Bdu; Z is B
@@ -437,7 +510,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties |= PROPERTY_U;
                 }
 
-                Ok(TypeInfo::new(MINISCRIPT_TYPE_B, properties))
+                Ok(TypeInfo::new(
+                    MINISCRIPT_TYPE_B,
+                    properties,
+                    x_type.pk_cost + z_type.pk_cost + 3,
+                    false,
+                ))
             }
             Fragment::OrI { x, z } => {
                 // both are B, K, or V
@@ -477,7 +555,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties |= PROPERTY_D;
                 }
 
-                Ok(TypeInfo::new(x_type.base_type(), properties))
+                Ok(TypeInfo::new(
+                    x_type.base_type(),
+                    properties,
+                    x_type.pk_cost + z_type.pk_cost + 3,
+                    false,
+                ))
             }
             Fragment::Thresh { k, xs } => {
                 // 1 ≤ k ≤ n; X1 is Bdu; others are Wdu
@@ -548,8 +631,10 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
 
                 let mut z_count = 0;
                 let mut o_count = 0;
+                let mut total_pk_cost = 1 + script_num_size(k as usize); // Equal and k
                 for x in xs {
                     let x_type = self.visit_ast_by_index(ctx, *x)?;
+                    total_pk_cost += x_type.pk_cost;
                     if x_type.has_property(PROPERTY_Z) {
                         z_count += 1;
                     } else if x_type.has_property(PROPERTY_O) {
@@ -564,10 +649,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 }
                 properties |= PROPERTY_D;
                 properties |= PROPERTY_U;
-                Ok(TypeInfo::new(MINISCRIPT_TYPE_B, properties))
+                Ok(TypeInfo::new(MINISCRIPT_TYPE_B, properties, total_pk_cost + xs.len() - 1, true))
             }
             Fragment::Multi { k, keys } => {
                 // 1 ≤ k ≤ n
+                let n = keys.len();
+
                 let k = *k;
                 if k < 1 {
                     return Err(CorrectnessPropertiesVisitorError::InvalidThreshold {
@@ -576,7 +663,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     });
                 }
 
-                if keys.len() < k as usize {
+                if n < k as usize {
                     return Err(CorrectnessPropertiesVisitorError::InvalidThreshold {
                         position: node.position,
                         k,
@@ -588,14 +675,24 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         position: node.position,
                     });
                 }
+
+                let num_cost = match (k > 16, n > 16) {
+                    (true, true) => 4,
+                    (false, true) => 3,
+                    (true, false) => 3,
+                    (false, false) => 2,
+                };
 
                 Ok(TypeInfo::new(
                     MINISCRIPT_TYPE_B,
                     PROPERTY_N | PROPERTY_D | PROPERTY_U,
+                    num_cost + 34 * n + 1,
+                    true,
                 ))
             }
             Fragment::MultiA { k, keys } => {
                 // 1 ≤ k ≤ n
+                let n = keys.len();
                 let k = *k;
                 if k < 1 {
                     return Err(CorrectnessPropertiesVisitorError::InvalidThreshold {
@@ -604,7 +701,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     });
                 }
 
-                if keys.len() < k as usize {
+                if n < k as usize {
                     return Err(CorrectnessPropertiesVisitorError::InvalidThreshold {
                         position: node.position,
                         k,
@@ -617,7 +714,18 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     });
                 }
 
-                Ok(TypeInfo::new(MINISCRIPT_TYPE_B, PROPERTY_D | PROPERTY_U))
+                let num_cost = match (k > 16, n > 16) {
+                    (true, true) => 4,
+                    (false, true) => 3,
+                    (true, false) => 3,
+                    (false, false) => 2,
+                };
+                Ok(TypeInfo::new(
+                    MINISCRIPT_TYPE_B,
+                    PROPERTY_D | PROPERTY_U,
+                    num_cost + 33 * n /*pks*/ + (n - 1) /*checksigadds*/ + 1,
+                    true,
+                ))
             }
             Fragment::Identity { identity_type, x } => {
                 let x_type = self.visit_ast_by_index(ctx, *x)?;
@@ -641,7 +749,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         if x_type.has_property(PROPERTY_U) {
                             properties |= PROPERTY_U;
                         }
-                        Ok(TypeInfo::new(MINISCRIPT_TYPE_W, properties))
+                        Ok(TypeInfo::new(
+                            MINISCRIPT_TYPE_W,
+                            properties,
+                            x_type.pk_cost + 2,
+                            false,
+                        ))
                     }
                     IdentityType::S => {
                         // X is Bo
@@ -667,7 +780,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         if x_type.has_property(PROPERTY_U) {
                             properties |= PROPERTY_U;
                         }
-                        Ok(TypeInfo::new(MINISCRIPT_TYPE_W, properties))
+                        Ok(TypeInfo::new(
+                            MINISCRIPT_TYPE_W,
+                            properties,
+                            x_type.pk_cost + 1,
+                            x_type.has_free_verify,
+                        ))
                     }
                     IdentityType::C => {
                         // X is K
@@ -691,7 +809,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             properties |= PROPERTY_D;
                         }
                         properties |= PROPERTY_U;
-                        Ok(TypeInfo::new(MINISCRIPT_TYPE_B, properties))
+                        Ok(TypeInfo::new(
+                            MINISCRIPT_TYPE_B,
+                            properties,
+                            x_type.pk_cost + 1,
+                            true,
+                        ))
                     }
 
                     IdentityType::D => {
@@ -711,7 +834,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         properties |= PROPERTY_D;
                         properties |= PROPERTY_U; // TODO: Tapscript only
 
-                        Ok(TypeInfo::new(MINISCRIPT_TYPE_B, properties))
+                        Ok(TypeInfo::new(
+                            MINISCRIPT_TYPE_B,
+                            properties,
+                            x_type.pk_cost + 3,
+                            false,
+                        ))
                     }
 
                     IdentityType::V => {
@@ -735,7 +863,14 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         if x_type.has_property(PROPERTY_N) {
                             properties |= PROPERTY_N;
                         }
-                        Ok(TypeInfo::new(MINISCRIPT_TYPE_V, properties))
+
+                        let verify_cost = usize::from(!x_type.has_free_verify);
+                        Ok(TypeInfo::new(
+                            MINISCRIPT_TYPE_V,
+                            properties,
+                            x_type.pk_cost + verify_cost,
+                            false,
+                        ))
                     }
 
                     IdentityType::J => {
@@ -765,7 +900,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         if x_type.has_property(PROPERTY_U) {
                             properties |= PROPERTY_U;
                         }
-                        Ok(TypeInfo::new(MINISCRIPT_TYPE_B, properties))
+                        Ok(TypeInfo::new(
+                            MINISCRIPT_TYPE_B,
+                            properties,
+                            x_type.pk_cost + 4,
+                            false,
+                        ))
                     }
 
                     IdentityType::N => {
@@ -795,7 +935,12 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         }
                         properties |= PROPERTY_U;
 
-                        Ok(TypeInfo::new(MINISCRIPT_TYPE_B, properties))
+                        Ok(TypeInfo::new(
+                            MINISCRIPT_TYPE_B,
+                            properties,
+                            x_type.pk_cost + 1,
+                            false,
+                        ))
                     }
                 }
             }

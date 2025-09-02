@@ -269,7 +269,7 @@ pub struct ParserContext<'a> {
 
     root: Option<AST<'a>>,
 
-    top_level_descriptor: Option<Descriptor>,
+    pub(crate) top_level_descriptor: Option<Descriptor>,
     pub(crate) inner_descriptor: Descriptor,
 }
 
@@ -961,7 +961,6 @@ fn parse_internal<'a>(
         }
 
         _ => {
-
             // the top fragment cant be an identity
 
             if let Some((peek_token, _peek_token_column)) = ctx.peek_next_token() {
@@ -969,7 +968,6 @@ fn parse_internal<'a>(
                     ctx.next_token(); // Advance past identity type
 
                     ctx.expect_token(":")?;
-
 
                     // multi colon is not allowed
                     // example: sh(uuuuuuuuuuuuuu:uuuuuu:1)
@@ -1060,8 +1058,7 @@ fn parse_internal<'a>(
                     return Ok(node);
                 }
             }
-        
-           
+
             // the top fragment cant be a bool
             if !first_fragment || ctx.inner_descriptor != Descriptor::Tr {
                 return parse_bool(ctx);

@@ -33,9 +33,10 @@
 #[cfg(feature = "debug")]
 /// AST printer
 mod ast_printer;
-
 /// Bitcoin descriptor parsing and validation
 pub mod descriptor;
+/// Limits for miniscript expressions
+pub mod limits;
 /// Miniscript parser and AST representation
 pub mod parser;
 
@@ -73,6 +74,8 @@ pub enum MiniscriptError<'a> {
     DescriptorVisitorError(descriptor::DescriptorVisitorError),
     /// Error occurred during Bitcoin script generation
     ScriptBuilderError(script::ScriptBuilderError<'a>),
+    /// Error occurred during script size checking
+    LimitsError(limits::LimitsError),
 }
 
 /// Parse and validate a miniscript string, returning the parsed context and generated Bitcoin script.
@@ -112,7 +115,7 @@ pub fn parse_script<'a>(
     let ctx = parser::parse(script).map_err(MiniscriptError::ParserError)?;
 
     // Type check the AST for correctness properties
-    let _: TypeInfo = type_checker::CorrectnessPropertiesVisitor::new()
+    let type_info: TypeInfo = type_checker::CorrectnessPropertiesVisitor::new()
         .visit(&ctx)
         .map_err(MiniscriptError::TypeCheckerError)?;
 
@@ -123,5 +126,15 @@ pub fn parse_script<'a>(
 
     // Generate the Bitcoin script
     let script_buf = script::build_script(&ctx).map_err(MiniscriptError::ScriptBuilderError)?;
+
+    // Check the script size
+    limits::check_script_size(
+        &ctx.top_level_descriptor
+            .clone()
+            .expect("Top level descriptor must be set"),
+        type_info.pk_cost,
+    )
+    .map_err(MiniscriptError::LimitsError)?;
+
     Ok((ctx, script_buf))
 }
