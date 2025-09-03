@@ -253,7 +253,7 @@ pub enum ParseError<'a> {
     UnexpectedTrailingToken {
         found: (&'a str, Position),
     },
-    InvalidIdentityType {
+    UnknownWrapper {
         found: char,
         position: Position,
     },
@@ -985,7 +985,7 @@ fn parse_internal<'a>(
 
 
                     // fix critical: https://github.com/unldenis/tinyminiscript/issues/3
-                    let identities = token.chars().rev().take(200);
+                    let identities = token.chars().rev().take(500);
 
                     for id_type in identities {
                         if id_type == 'a'
@@ -1052,7 +1052,7 @@ fn parse_internal<'a>(
                             }
                         } else {
                             // invalid identity type
-                            return Err(ParseError::InvalidIdentityType {
+                            return Err(ParseError::UnknownWrapper {
                                 found: id_type,
                                 position: column,
                             });
