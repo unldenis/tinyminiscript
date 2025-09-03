@@ -124,8 +124,8 @@ pub fn parse_script<'a>(
         .visit(&ctx)
         .map_err(MiniscriptError::DescriptorVisitorError)?;
 
-    // Generate the Bitcoin script
-    let script_buf = script::build_script(&ctx).map_err(MiniscriptError::ScriptBuilderError)?;
+    // Check the recursion depth
+    limits::check_recursion_depth(type_info.tree_height).map_err(MiniscriptError::LimitsError)?;
 
     // Check the script size
     limits::check_script_size(
@@ -135,6 +135,9 @@ pub fn parse_script<'a>(
         type_info.pk_cost,
     )
     .map_err(MiniscriptError::LimitsError)?;
+
+    // Generate the Bitcoin script
+    let script_buf = script::build_script(&ctx).map_err(MiniscriptError::ScriptBuilderError)?;
 
     Ok((ctx, script_buf))
 }

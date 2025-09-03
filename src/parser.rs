@@ -983,7 +983,6 @@ fn parse_internal<'a>(
 
                     let mut node: AST = parse_internal(ctx, first_fragment)?;
 
-
                     // fix critical: https://github.com/unldenis/tinyminiscript/issues/3
                     let identities = token.chars().rev().take(500);
 

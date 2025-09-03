@@ -29,6 +29,7 @@ fn main() {
             "tr(u:1)".to_string(),
             "sh(uunnnnnnnnnnnnnnnnnnuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuunnnnnnnuuu:1)".to_string(),
             "wsh(uuzuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu:0)".to_string(),
+            "wsh(uuzuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu:0)".to_string()
         ];
 
         for script in scripts {
@@ -42,12 +43,10 @@ fn main() {
         }
     }
 
-
-
     let read_file = std::fs::read_to_string("/home/user/rust/f-miniscript/fuzz/artifacts/parsing/crash-eb664da22b5a06fcd77c10a9cb3ee08d2a43dc96").unwrap();
-   
+
     println!("\n\nFile script --------------------------------");
-    
+
     use miniscript::Descriptor;
 
     match Descriptor::<PublicKey>::from_str(&read_file) {
@@ -62,13 +61,11 @@ fn main() {
     match execute_script(&read_file) {
         Ok(_) => {
             println!("tinyminiscript: descriptor parsed successfully");
-        },
+        }
         Err(e) => {
             println!("tinyminiscript: error parsing descriptor: {:?}", e);
         }
     }
-
-
 }
 #[derive(Debug)]
 enum Error<'a> {

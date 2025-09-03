@@ -1,4 +1,5 @@
 use crate::parser::{AST, ASTVisitor, Fragment, IdentityType, ParserContext, Position};
+use core::cmp;
 
 /// The size of an encoding of a number in Script
 pub fn script_num_size(n: usize) -> usize {
@@ -40,16 +41,26 @@ pub struct TypeInfo {
     pub(crate) pk_cost: usize,
     /// Whether this fragment can be verify-wrapped for free
     has_free_verify: bool,
+    /// The miniscript tree depth/height of this node.
+    /// Used for checking the max depth of the miniscript tree to prevent stack overflow.
+    pub(crate) tree_height: usize,
 }
 
 impl TypeInfo {
     #[inline]
-    pub const fn new(base_type: u8, properties: u8, pk_cost: usize, has_free_verify: bool) -> Self {
+    pub const fn new(
+        base_type: u8,
+        properties: u8,
+        pk_cost: usize,
+        has_free_verify: bool,
+        tree_height: usize,
+    ) -> Self {
         Self {
             base_type,
             properties,
             pk_cost,
             has_free_verify: false,
+            tree_height,
         }
     }
 
@@ -124,24 +135,28 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 PROPERTY_Z | PROPERTY_U | PROPERTY_D,
                 1,
                 false,
+                0,
             )),
             Fragment::True => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_Z | PROPERTY_U,
                 1,
                 false,
+                0,
             )),
             Fragment::PkK { key } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_K,
                 PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
                 34,
                 false,
+                0,
             )),
             Fragment::PkH { key } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_K,
                 PROPERTY_N | PROPERTY_D | PROPERTY_U,
                 24,
                 false,
+                0,
             )),
             // Fragment::Pk { key } => Ok(TypeInfo::new(MINISCRIPT_TYPE_K)),
             // Fragment::Pkh { key } => Ok(TypeInfo::new(MINISCRIPT_TYPE_K)),
@@ -150,36 +165,42 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 PROPERTY_Z,
                 script_num_size(*n as usize) + 1,
                 false,
+                0,
             )),
             Fragment::After { n } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_Z,
                 script_num_size(*n as usize) + 1,
                 false,
+                0,
             )),
             Fragment::Sha256 { h } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
                 33 + 6,
                 true,
+                0,
             )),
             Fragment::Hash256 { h } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
                 33 + 6,
                 true,
+                0,
             )),
             Fragment::Ripemd160 { h } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
                 21 + 6,
                 true,
+                0,
             )),
             Fragment::Hash160 { h } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
                 21 + 6,
                 true,
+                0,
             )),
 
             Fragment::AndOr { x, y, z } => {
@@ -253,6 +274,10 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties,
                     x_type.pk_cost + y_type.pk_cost + z_type.pk_cost + 3,
                     false,
+                    1 + cmp::max(
+                        x_type.tree_height,
+                        cmp::max(y_type.tree_height, z_type.tree_height),
+                    ),
                 ))
             }
             Fragment::AndV { x, y } => {
@@ -304,6 +329,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties,
                     x_type.pk_cost + y_type.pk_cost,
                     y_type.has_free_verify,
+                    1 + cmp::max(x_type.tree_height, y_type.tree_height),
                 ))
             }
             Fragment::AndB { x, y } => {
@@ -355,6 +381,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties,
                     x_type.pk_cost + y_type.pk_cost + 1,
                     false,
+                    1 + cmp::max(x_type.tree_height, y_type.tree_height),
                 ))
             }
             // Fragment::AndN { x, y } => Ok(TypeInfo::new(MINISCRIPT_TYPE_B)),
@@ -415,6 +442,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties,
                     x_type.pk_cost + z_type.pk_cost + 1,
                     false,
+                    1 + cmp::max(x_type.tree_height, z_type.tree_height),
                 ))
             }
             Fragment::OrC { x, z } => {
@@ -461,6 +489,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties,
                     x_type.pk_cost + z_type.pk_cost + 2,
                     false,
+                    1 + cmp::max(x_type.tree_height, z_type.tree_height),
                 ))
             }
             Fragment::OrD { x, z } => {
@@ -515,6 +544,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties,
                     x_type.pk_cost + z_type.pk_cost + 3,
                     false,
+                    1 + cmp::max(x_type.tree_height, z_type.tree_height),
                 ))
             }
             Fragment::OrI { x, z } => {
@@ -560,6 +590,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     properties,
                     x_type.pk_cost + z_type.pk_cost + 3,
                     false,
+                    1 + cmp::max(x_type.tree_height, z_type.tree_height),
                 ))
             }
             Fragment::Thresh { k, xs } => {
@@ -632,9 +663,11 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 let mut z_count = 0;
                 let mut o_count = 0;
                 let mut total_pk_cost = 1 + script_num_size(k as usize); // Equal and k
+                let mut max_child_height = 0;
                 for x in xs {
                     let x_type = self.visit_ast_by_index(ctx, *x)?;
                     total_pk_cost += x_type.pk_cost;
+                    max_child_height = cmp::max(max_child_height, x_type.tree_height);
                     if x_type.has_property(PROPERTY_Z) {
                         z_count += 1;
                     } else if x_type.has_property(PROPERTY_O) {
@@ -649,7 +682,13 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 }
                 properties |= PROPERTY_D;
                 properties |= PROPERTY_U;
-                Ok(TypeInfo::new(MINISCRIPT_TYPE_B, properties, total_pk_cost + xs.len() - 1, true))
+                Ok(TypeInfo::new(
+                    MINISCRIPT_TYPE_B,
+                    properties,
+                    total_pk_cost + xs.len() - 1,
+                    true,
+                    max_child_height + 1,
+                ))
             }
             Fragment::Multi { k, keys } => {
                 // 1 ≤ k ≤ n
@@ -688,6 +727,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     PROPERTY_N | PROPERTY_D | PROPERTY_U,
                     num_cost + 34 * n + 1,
                     true,
+                    0,
                 ))
             }
             Fragment::MultiA { k, keys } => {
@@ -725,6 +765,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     PROPERTY_D | PROPERTY_U,
                     num_cost + 33 * n /*pks*/ + (n - 1) /*checksigadds*/ + 1,
                     true,
+                    0,
                 ))
             }
             Fragment::Identity { identity_type, x } => {
@@ -754,6 +795,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             properties,
                             x_type.pk_cost + 2,
                             false,
+                            x_type.tree_height + 1,
                         ))
                     }
                     IdentityType::S => {
@@ -785,6 +827,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             properties,
                             x_type.pk_cost + 1,
                             x_type.has_free_verify,
+                            x_type.tree_height + 1,
                         ))
                     }
                     IdentityType::C => {
@@ -814,6 +857,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             properties,
                             x_type.pk_cost + 1,
                             true,
+                            x_type.tree_height + 1,
                         ))
                     }
 
@@ -839,6 +883,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             properties,
                             x_type.pk_cost + 3,
                             false,
+                            x_type.tree_height + 1,
                         ))
                     }
 
@@ -870,6 +915,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             properties,
                             x_type.pk_cost + verify_cost,
                             false,
+                            x_type.tree_height + 1,
                         ))
                     }
 
@@ -905,6 +951,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             properties,
                             x_type.pk_cost + 4,
                             false,
+                            x_type.tree_height + 1,
                         ))
                     }
 
@@ -940,6 +987,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             properties,
                             x_type.pk_cost + 1,
                             false,
+                            x_type.tree_height + 1,
                         ))
                     }
                 }
