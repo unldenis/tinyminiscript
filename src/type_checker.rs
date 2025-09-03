@@ -871,6 +871,14 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                             });
                         }
 
+                        if !x_type.has_property(PROPERTY_Z) {
+                            return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
+                                reason: "d:X: X must have property Z (Zero)",
+                                found: x_type.properties(),
+                                position: node.position,
+                            });
+                        }
+
                         // properties: o; n; d; (Tapscript only) u
                         let mut properties = 0;
                         properties |= PROPERTY_O;
