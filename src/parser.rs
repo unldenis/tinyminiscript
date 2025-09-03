@@ -983,7 +983,11 @@ fn parse_internal<'a>(
 
                     let mut node: AST = parse_internal(ctx, first_fragment)?;
 
-                    for id_type in token.chars().rev() {
+
+                    // fix critical: https://github.com/unldenis/tinyminiscript/issues/3
+                    let identities = token.chars().rev().take(200);
+
+                    for id_type in identities {
                         if id_type == 'a'
                             || id_type == 'v'
                             || id_type == 'c'
