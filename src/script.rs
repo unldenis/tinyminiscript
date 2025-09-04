@@ -20,6 +20,7 @@ pub enum ScriptBuilderError<'a> {
         position: Position,
         key: &'a str,
     },
+    NonDefiniteKey(alloc::string::String),
 }
 
 #[inline]
@@ -60,17 +61,19 @@ impl<'a> ScriptBuilder<'a> {
                 Ok(builder)
             }
             Fragment::PkK { key } => {
-                builder = match &key {
-                    KeyType::PublicKey(k) => builder.push_key(k),
-                    KeyType::XOnlyPublicKey(k) => builder.push_x_only_key(k),
+                let key = match key.as_definite_key() {
+                    Some(k) => k,
+                    None => return Err(ScriptBuilderError::NonDefiniteKey(key.identifier())),
                 };
+                builder = key.push_to_script(builder);
                 Ok(builder)
             }
             Fragment::PkH { key } => {
-                let hash: PubkeyHash = match &key {
-                    KeyType::PublicKey(k) => k.pubkey_hash(),
-                    KeyType::XOnlyPublicKey(k) => PubkeyHash::hash(&k.serialize()),
+                let key = match key.as_definite_key() {
+                    Some(k) => k,
+                    None => return Err(ScriptBuilderError::NonDefiniteKey(key.identifier())),
                 };
+                let hash: PubkeyHash = key.pubkey_hash();
 
                 builder = builder
                     .push_opcode(opcodes::all::OP_DUP)

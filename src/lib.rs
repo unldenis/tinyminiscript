@@ -12,11 +12,12 @@
 //! # Examples
 //!
 //! ```rust
-//! use tinyminiscript::parse_script;
+//! use tinyminiscript::{parse_script, script::build_script};
 //!
 //! // Parse a simple miniscript
 //! let result = parse_script("wsh(multi(1,022f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4,025cbdf0646e5db4eaa398f365f2ea7a0e3d419b7e0330e39ce92bddedcac4f9bc))");
-//! if let Ok((ctx, script)) = result {
+//! if let Ok(ctx) = result {
+//!     let script = build_script(&ctx).unwrap();
 //!     println!("Successfully parsed miniscript");
 //!     println!("Generated script: {:?}", script);
 //! }
@@ -48,6 +49,8 @@ pub mod satisfy;
 pub mod script;
 /// Type checking and correctness property validation
 pub mod type_checker;
+
+pub use bitcoin;
 
 pub extern crate alloc;
 pub(crate) type Vec<T> = alloc::vec::Vec<T>;
@@ -101,17 +104,20 @@ pub enum MiniscriptError<'a> {
 /// # Examples
 ///
 /// ```rust
-/// use tinyminiscript::parse_script;
+/// use tinyminiscript::{parse_script, script::build_script};
 ///
 /// let result = parse_script("pk(02e79c4c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3)");
 /// match result {
-///     Ok((ctx, script)) => println!("Generated script: {:?}", script),
+///     Ok(ctx) => {
+///         let script = build_script(&ctx).unwrap();
+///         println!("Generated script: {:?}", script);
+///     }
 ///     Err(e) => eprintln!("Parse error: {:?}", e),
 /// }
 /// ```
 pub fn parse_script<'a>(
     script: &'a str,
-) -> Result<(ParserContext<'a>, ScriptBuf), MiniscriptError<'a>> {
+) -> Result<ParserContext<'a>, MiniscriptError<'a>> {
     let ctx = parser::parse(script).map_err(MiniscriptError::ParserError)?;
 
     // Type check the AST for correctness properties
@@ -136,8 +142,5 @@ pub fn parse_script<'a>(
     )
     .map_err(MiniscriptError::LimitsError)?;
 
-    // Generate the Bitcoin script
-    let script_buf = script::build_script(&ctx).map_err(MiniscriptError::ScriptBuilderError)?;
-
-    Ok((ctx, script_buf))
+    Ok(ctx)
 }
