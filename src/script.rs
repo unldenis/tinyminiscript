@@ -6,7 +6,7 @@ use bitcoin::{
 
 use crate::{
     descriptor::Descriptor,
-    parser::{AST, Fragment, KeyType, ParserContext, Position},
+    parser::{AST, Fragment, ParserContext, Position},
 };
 
 #[cfg_attr(feature = "debug", derive(Debug))]

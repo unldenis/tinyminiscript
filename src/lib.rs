@@ -115,9 +115,7 @@ pub enum MiniscriptError<'a> {
 ///     Err(e) => eprintln!("Parse error: {:?}", e),
 /// }
 /// ```
-pub fn parse_script<'a>(
-    script: &'a str,
-) -> Result<ParserContext<'a>, MiniscriptError<'a>> {
+pub fn parse_script<'a>(script: &'a str) -> Result<ParserContext<'a>, MiniscriptError<'a>> {
     let ctx = parser::parse(script).map_err(MiniscriptError::ParserError)?;
 
     // Type check the AST for correctness properties

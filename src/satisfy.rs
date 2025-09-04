@@ -3,7 +3,8 @@ use core::ops::Deref;
 use bitcoin::Witness;
 
 use crate::{
-    bitcoin_definition_link, parser::{DefiniteKeyTrait, Fragment, KeyType, ParserContext, PublicKeyTrait, AST}, Vec
+    Vec, bitcoin_definition_link,
+    parser::{AST, DefiniteKeyTrait, Fragment, ParserContext, PublicKeyTrait},
 };
 
 pub trait Satisfier {
