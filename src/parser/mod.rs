@@ -349,6 +349,20 @@ impl<'a> ParserContext<'a> {
                 _ => (),
             });
     }
+
+    /// Derive all the keys in the AST.
+    pub fn derive(&mut self, index: u32) -> Result<(), String> {
+        for node in &mut self.nodes {
+            match &mut node.fragment {
+                Fragment::PkK { key } | Fragment::PkH { key } => {
+                    let derived = key.derive(index)?;
+                    key.inner = derived;
+                }
+                _ => (),
+            }
+        }
+        Ok(())
+    }
 }
 
 #[inline]
