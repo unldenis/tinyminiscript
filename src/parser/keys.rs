@@ -1,14 +1,29 @@
+use core::ops::Deref;
 use core::str::FromStr;
 
+use alloc::{string::String, vec::Vec};
 use bitcoin::bip32;
 use bitcoin::hashes::Hash;
-use bitcoin::{PubkeyHash, secp256k1, script::Builder};
-use alloc::{string::String, vec::Vec};
+use bitcoin::{PubkeyHash, script::Builder, secp256k1};
 
 use alloc::boxed::Box;
 
 use crate::descriptor::Descriptor;
 use crate::parser::{ParseError, Position};
+
+#[cfg_attr(feature = "debug", derive(Debug))]
+/// A token for a public key.
+pub struct KeyToken {
+    pub inner: Box<dyn PublicKeyTrait>,
+}
+
+impl Deref for KeyToken {
+    type Target = Box<dyn PublicKeyTrait>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
 
 pub trait PublicKeyTrait: core::fmt::Debug {
     fn is_compressed(&self) -> bool;
@@ -136,7 +151,7 @@ impl PublicKeyTrait for ExtendedKey {
 pub fn parse_key<'a>(
     token: (&'a str, Position),
     descriptor: &Descriptor,
-) -> Result<Box<dyn PublicKeyTrait>, ParseError<'a>> {
+) -> Result<KeyToken, ParseError<'a>> {
     // Try parsing as extended key first
     if token.0.contains("pub") {
         // Format: [fingerprint/path]xpub.../path or just xpub.../path
@@ -239,7 +254,7 @@ pub fn parse_key<'a>(
             None => Default::default(),
         };
 
-        return Ok(Box::new(ExtendedKey {
+        let key = Box::new(ExtendedKey {
             origin: match (origin_fingerprint, origin_path) {
                 (Some(fingerprint), Some(path)) => Some((fingerprint, path)),
                 (Some(fingerprint), None) => Some((fingerprint, Default::default())),
@@ -249,7 +264,8 @@ pub fn parse_key<'a>(
             path,
             wildcard,
             x_only,
-        }) as Box<dyn PublicKeyTrait>);
+        });
+        return Ok(KeyToken { inner: key });
     }
 
     // Get the key type based on the inner descriptor
@@ -270,9 +286,8 @@ pub fn parse_key<'a>(
             ) as Box<dyn PublicKeyTrait>
         }
     };
-    Ok(key)
+    Ok(KeyToken { inner: key })
 }
-
 
 #[cfg(test)]
 mod test {
@@ -283,7 +298,7 @@ mod test {
         let key = "[aabbccdd/10'/123]tpubDAenfwNu5GyCJWv8oqRAckdKMSUoZjgVF5p8WvQwHQeXjDhAHmGrPa4a4y2Fn7HF2nfCLefJanHV3ny1UY25MRVogizB2zRUdAo7Tr9XAjm/10/*";
         let key = parse_key((key, 0), &Descriptor::Wpkh).unwrap();
         dbg!(&key);
-        let derived = key.derive(22).unwrap();
+        let derived = key.inner.derive(22).unwrap();
         dbg!(&derived);
     }
 }

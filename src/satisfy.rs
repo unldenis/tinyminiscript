@@ -4,8 +4,8 @@ use bitcoin::Witness;
 
 use crate::{
     Vec, bitcoin_definition_link,
-    parser::{AST, Fragment, ParserContext},
     parser::keys::{DefiniteKeyTrait, PublicKeyTrait},
+    parser::{AST, Fragment, ParserContext},
 };
 
 pub trait Satisfier {
@@ -195,7 +195,7 @@ pub fn satisfy<'a>(
         Fragment::True => Ok(Satisfactions::new(UNAVAILABLE, EMPTY)),
         Fragment::PkK { key } => {
             let (sig, avail) = satisfier
-                .sign(key.deref())
+                .sign(key.inner.deref())
                 .ok_or(SatisfyError::MissingSignature(key.identifier()))?;
             Ok(Satisfactions::new(
                 zero(),
@@ -204,7 +204,7 @@ pub fn satisfy<'a>(
         }
         Fragment::PkH { key } => {
             let (sig, avail) = satisfier
-                .sign(key.deref())
+                .sign(key.inner.deref())
                 .ok_or(SatisfyError::MissingSignature(key.identifier()))?;
 
             let key = match key.as_definite_key() {

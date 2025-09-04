@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{ops::Deref, str::FromStr};
 
 use bitcoin::{PublicKey, XOnlyPublicKey};
 use tinyminiscript::{
@@ -9,7 +9,7 @@ fn main() {
     let x_only = "0202020202020202020202020202020202020202020202020202020202020202";
     let pub_key = "020202020202020202020202020202020202020202020202020202020202020202";
 
-    if true {
+    if false {
         let scripts = vec![
             "sh(uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuunuuuuunuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuunuuuuunuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu:0)".to_string(),
             format!("tr(and_v(v:pk({}),pk({})))", x_only, x_only),
@@ -45,29 +45,19 @@ fn main() {
         }
     }
 
-    let read_file = std::fs::read_to_string("/home/user/rust/f-miniscript/fuzz/artifacts/parsing/crash-eb664da22b5a06fcd77c10a9cb3ee08d2a43dc96").unwrap();
+    let key = "[aabbccdd/10'/123]tpubDAenfwNu5GyCJWv8oqRAckdKMSUoZjgVF5p8WvQwHQeXjDhAHmGrPa4a4y2Fn7HF2nfCLefJanHV3ny1UY25MRVogizB2zRUdAo7Tr9XAjm/10/*";
+    let script = format!("sh(pk({}))", key);
 
-    println!("\n\nFile script --------------------------------");
+    let mut ctx = tinyminiscript::parse_script(&script).unwrap();
+    ctx.iterate_keys(|key| {
+        println!("before : {:?}", key.inner);
 
-    use miniscript::Descriptor;
+        let derived = key.inner.derive(22).unwrap();
 
-    match Descriptor::<PublicKey>::from_str(&read_file) {
-        Ok(_) => {
-            println!("miniscript: descriptor parsed successfully");
-        }
-        Err(e) => {
-            println!("miniscript: error parsing descriptor: {:?}", e);
-        }
-    }
+        key.inner = derived;
+    });
 
-    match execute_script(&read_file) {
-        Ok(_) => {
-            println!("tinyminiscript: descriptor parsed successfully");
-        }
-        Err(e) => {
-            println!("tinyminiscript: error parsing descriptor: {:?}", e);
-        }
-    }
+    println!("bitcoin script: {}", ctx.print_ast());
 }
 #[derive(Debug)]
 enum Error<'a> {
@@ -90,7 +80,6 @@ fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
     //     .satisfy(&TestSatisfier {})
     //     .map_err(Error::Satisfaction)?;
     // println!("satisfied: {:?}", satisfied.sat);
-    
 
     Ok(())
 }

@@ -1,16 +1,17 @@
-pub mod keys;   
+pub mod keys;
 
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use bitcoin::secp256k1;
 use core::str::FromStr;
 
-use keys::PublicKeyTrait;
+use crate::parser::keys::KeyToken;
 use crate::{
     Vec,
     descriptor::Descriptor,
     satisfy::{self, Satisfactions, Satisfier, SatisfyError},
 };
+use keys::PublicKeyTrait;
 
 use bitcoin::{PubkeyHash, bip32, hashes::Hash, script::Builder};
 
@@ -59,9 +60,9 @@ pub enum Fragment<'a> {
 
     // Key Fragments
     /// pk_k(key)
-    PkK { key: Box<dyn PublicKeyTrait> },
+    PkK { key: KeyToken },
     /// pk_h(key)
-    PkH { key: Box<dyn PublicKeyTrait> },
+    PkH { key: KeyToken },
 
     // Time fragments
     /// older(n)
@@ -129,8 +130,6 @@ pub enum Fragment<'a> {
         inner: NodeIndex,
     },
 }
-
-
 
 #[cfg_attr(feature = "debug", derive(Debug))]
 #[derive(PartialEq)]
@@ -337,6 +336,18 @@ impl<'a> ParserContext<'a> {
     #[inline]
     pub const fn is_wrapped(&self) -> bool {
         self.top_level_descriptor.is_some()
+    }
+
+    /// Iterate over all the keys.
+    /// Not using a Visitor pattern because it's not needed for the current use case.
+    pub fn iterate_keys(&mut self, mut callback: impl FnMut(&mut KeyToken)) {
+        self.nodes
+            .iter_mut()
+            .for_each(|node| match &mut node.fragment {
+                Fragment::PkK { key } => callback(key),
+                Fragment::PkH { key } => callback(key),
+                _ => (),
+            });
     }
 }
 
@@ -1080,5 +1091,3 @@ fn parse_bool<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError<'a>
         }
     }
 }
-
-
