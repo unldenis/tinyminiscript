@@ -280,11 +280,11 @@ pub fn parse_key<'a>(
 
             // Parse fingerprint
             let fingerprint_part = &origin_part[..8];
-            origin_fingerprint = Some(bip32::Fingerprint::from_str(fingerprint_part).map_err(|e| {
+            origin_fingerprint = Some(bip32::Fingerprint::from_str(fingerprint_part).map_err(|_| {
                 ParseError::InvalidKey {
                     key: token.0,
                     position: token.1,
-                    inner: alloc::format!("{:?}", e),
+                    inner: "Invalid origin fingerprint".to_string(),
                 }
             })?);
 
@@ -292,11 +292,11 @@ pub fn parse_key<'a>(
             if !remaining.is_empty() {
                 // Parse origin path
                 let origin_path_str = alloc::format!("m{}", &remaining[..(remaining.len() - 1)]);
-                origin_path = Some(bip32::DerivationPath::from_str(&origin_path_str).map_err(|e| {
+                origin_path = Some(bip32::DerivationPath::from_str(&origin_path_str).map_err(|_| {
                     ParseError::InvalidKey {
                         key: token.0,
                         position: token.1,
-                        inner: alloc::format!("{:?}: {origin_path_str}", e),
+                        inner: "Invalid origin path".to_string(),
                     }
                 })?);
             }
@@ -331,21 +331,21 @@ pub fn parse_key<'a>(
         }).transpose()?;
 
         // Parse the key
-        let key = bip32::Xpub::from_str(key_part).map_err(|e| {
+        let key = bip32::Xpub::from_str(key_part).map_err(|_| {
             ParseError::InvalidKey {
                 key: token.0,
                 position: token.1,
-                inner: alloc::format!("{:?}", e)
+                inner: "Invalid xpub".to_string(),
             }
         })?;
 
         // Parse the path
         let path = match path_str {
-            Some(path_str) => bip32::DerivationPath::from_str(&path_str).map_err(|e| {
+            Some(path_str) => bip32::DerivationPath::from_str(&path_str).map_err(|_| {
                 ParseError::InvalidKey {
                     key: token.0,
                     position: token.1,
-                    inner: alloc::format!("{:?}", e)
+                    inner: "Invalid path".to_string(),
                 }
             })?,
             None => Default::default(),
@@ -638,6 +638,14 @@ impl<'a> ParserContext<'a> {
 
         let mut ast_printer = ast_printer::ASTPrinter::new();
         ast_printer.print_ast(self)
+    }
+
+    pub fn descriptor(&self) -> Descriptor {
+        self.inner_descriptor.clone()
+    }
+
+    pub fn is_wrapped(&self) -> bool {
+        self.top_level_descriptor.is_some()
     }
 }
 
