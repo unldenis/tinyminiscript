@@ -86,36 +86,35 @@ fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
     println!("bitcoin script size: {} bytes", script_buf.len());
 
     //println!("nodes: {:?}", ctx.nodes);
-    if false {
-        let satisfied = ctx
-            .satisfy(&TestSatisfier {})
-            .map_err(Error::Satisfaction)?;
-        println!("satisfied: {:?}", satisfied.sat);
-    }
+    // let satisfied = ctx
+    //     .satisfy(&TestSatisfier {})
+    //     .map_err(Error::Satisfaction)?;
+    // println!("satisfied: {:?}", satisfied.sat);
+    
 
     Ok(())
 }
 
-struct TestSatisfier {}
+// struct TestSatisfier {}
 
-impl Satisfier for TestSatisfier {
-    fn check_older(&self, locktime: i64) -> Option<bool> {
-        None
-    }
+// impl Satisfier for TestSatisfier {
+//     fn check_older(&self, locktime: i64) -> Option<bool> {
+//         None
+//     }
 
-    fn check_after(&self, locktime: i64) -> Option<bool> {
-        None
-    }
+//     fn check_after(&self, locktime: i64) -> Option<bool> {
+//         None
+//     }
 
-    fn sign(&self, pubkey: &dyn tinyminiscript::parser::PublicKeyTrait) -> Option<(Vec<u8>, bool)> {
-        Some((Vec::new(), false))
-    }
+//     fn sign(&self, pubkey: &dyn tinyminiscript::parser::keys::PublicKeyTrait) -> Option<(Vec<u8>, bool)> {
+//         Some((Vec::new(), false))
+//     }
 
-    fn preimage(
-        &self,
-        hash_func: tinyminiscript::satisfy::HashFunc,
-        hash: &[u8],
-    ) -> Option<(Vec<u8>, bool)> {
-        None
-    }
-}
+//     fn preimage(
+//         &self,
+//         hash_func: tinyminiscript::satisfy::HashFunc,
+//         hash: &[u8],
+//     ) -> Option<(Vec<u8>, bool)> {
+//         None
+//     }
+// }

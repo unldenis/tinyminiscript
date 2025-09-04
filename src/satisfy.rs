@@ -4,7 +4,8 @@ use bitcoin::Witness;
 
 use crate::{
     Vec, bitcoin_definition_link,
-    parser::{AST, DefiniteKeyTrait, Fragment, ParserContext, PublicKeyTrait},
+    parser::{AST, Fragment, ParserContext},
+    parser::keys::{DefiniteKeyTrait, PublicKeyTrait},
 };
 
 pub trait Satisfier {

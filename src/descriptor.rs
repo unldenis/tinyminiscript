@@ -82,7 +82,7 @@ impl<'a> ASTVisitor<'a, ()> for DescriptorValidator<'a> {
 
             Fragment::False => {}
             Fragment::True => {}
-            Fragment::PkK { key } | Fragment::PkH { key } => match &ctx.inner_descriptor {
+            Fragment::PkK { key } | Fragment::PkH { key } => match &ctx.descriptor() {
                 Descriptor::Bare => {}
                 Descriptor::Pkh => {}
                 Descriptor::Sh => {}
@@ -137,21 +137,21 @@ impl<'a> ASTVisitor<'a, ()> for DescriptorValidator<'a> {
             }
             Fragment::Multi { k, keys } => {
                 // (P2WSH only)
-                if ctx.inner_descriptor != Descriptor::Wsh {
+                if ctx.descriptor() != Descriptor::Wsh {
                     return Err(DescriptorVisitorError::InvalidFragmentForDescriptor {
                         position: node.position,
                         expected: Descriptor::Wsh,
-                        found: ctx.inner_descriptor.clone(),
+                        found: ctx.descriptor(),
                     });
                 }
             }
             Fragment::MultiA { k, keys } => {
                 // Tapscript only
-                if ctx.inner_descriptor != Descriptor::Tr {
+                if ctx.descriptor() != Descriptor::Tr {
                     return Err(DescriptorVisitorError::InvalidFragmentForDescriptor {
                         position: node.position,
                         expected: Descriptor::Tr,
-                        found: ctx.inner_descriptor.clone(),
+                        found: ctx.descriptor(),
                     });
                 }
             }
