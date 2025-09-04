@@ -3,7 +3,7 @@ use core::ops::Deref;
 use bitcoin::Witness;
 
 use crate::{
-    bitcoin_definition_link, parser::{Fragment, KeyType, KeyTypeTrait, ParserContext, AST}, Vec
+    bitcoin_definition_link, parser::{DefiniteKeyTrait, Fragment, KeyType, ParserContext, PublicKeyTrait, AST}, Vec
 };
 
 pub trait Satisfier {
@@ -16,7 +16,7 @@ pub trait Satisfier {
     fn check_after(&self, locktime: i64) -> Option<bool>;
 
     /// Sign generates a signature for the given public key.
-    fn sign(&self, pubkey: &dyn KeyTypeTrait) -> Option<(Vec<u8>, bool)>;
+    fn sign(&self, pubkey: &dyn PublicKeyTrait) -> Option<(Vec<u8>, bool)>;
 
     /// Preimage returns the preimage of the hash value. hashFunc is one of "sha256", "ripemd160",
     /// "hash256", "hash160".
@@ -160,6 +160,7 @@ pub enum SatisfyError {
     MissingLockTime(i64),
     MissingPreimage(HashFunc),
     InvalidPreimage(HashFunc),
+    NonDefiniteKey(alloc::string::String),
 }
 
 const EMPTY: Satisfaction = Satisfaction {
@@ -203,6 +204,12 @@ pub fn satisfy<'a>(
             let (sig, avail) = satisfier
                 .sign(key.deref())
                 .ok_or(SatisfyError::MissingSignature(key.identifier()))?;
+
+            let key = match key.as_definite_key() {
+                Some(k) => k,
+                None => return Err(SatisfyError::NonDefiniteKey(key.identifier())),
+            };
+
             Ok(Satisfactions::new(
                 zero().and(&witness(&key.to_bytes())),
                 witness(sig.as_slice())

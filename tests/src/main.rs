@@ -75,7 +75,8 @@ enum Error<'a> {
 }
 
 fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
-    let (ctx, script_buf) = tinyminiscript::parse_script(script).map_err(Error::Miniscript)?;
+    let ctx = tinyminiscript::parse_script(script).map_err(Error::Miniscript)?;
+    let script_buf = tinyminiscript::script::build_script(&ctx).map_err(MiniscriptError::ScriptBuilderError).map_err(Error::Miniscript)?;
     // println!("ast: {}", ctx.print_ast());
     // println!("bitcoin script: {:?}", script_buf.to_asm_string());
 
@@ -103,7 +104,7 @@ impl Satisfier for TestSatisfier {
         None
     }
 
-    fn sign(&self, pubkey: &dyn tinyminiscript::parser::KeyTypeTrait) -> Option<(Vec<u8>, bool)> {
+    fn sign(&self, pubkey: &dyn tinyminiscript::parser::PublicKeyTrait) -> Option<(Vec<u8>, bool)> {
         Some((Vec::new(), false))
     }
 

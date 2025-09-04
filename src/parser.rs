@@ -1,6 +1,7 @@
 use core::str::FromStr;
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
+use bitcoin::secp256k1;
 
 use crate::{
     Vec,
@@ -8,7 +9,7 @@ use crate::{
     satisfy::{self, Satisfactions, Satisfier, SatisfyError},
 };
 
-use bitcoin::{hashes::Hash, script::Builder, PubkeyHash};
+use bitcoin::{bip32, hashes::Hash, script::Builder, PubkeyHash};
 
 // AST Visitor
 
@@ -55,9 +56,9 @@ pub enum Fragment<'a> {
 
     // Key Fragments
     /// pk_k(key)
-    PkK { key: Box<dyn KeyTypeTrait> },
+    PkK { key: Box<dyn PublicKeyTrait> },
     /// pk_h(key)
-    PkH { key: Box<dyn KeyTypeTrait> },
+    PkH { key: Box<dyn PublicKeyTrait> },
 
     // Time fragments
     /// older(n)
@@ -126,24 +127,38 @@ pub enum Fragment<'a> {
     },
 }
 
-pub trait KeyTypeTrait: core::fmt::Debug {
+pub trait PublicKeyTrait: core::fmt::Debug {
     fn is_compressed(&self) -> bool;
-    fn to_bytes(&self) -> Vec<u8>;
     fn identifier(&self) -> String;
+    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait>;
+    fn derive(&self, index: u32) -> Result<Box<dyn DefiniteKeyTrait>, String>;
+}
+
+pub trait DefiniteKeyTrait: PublicKeyTrait {
+    fn to_bytes(&self) -> Vec<u8>;
     fn push_to_script(&self, builder: Builder) -> Builder;
     fn pubkey_hash(&self) -> PubkeyHash;
 }
 
-impl KeyTypeTrait for bitcoin::PublicKey {
+impl PublicKeyTrait for bitcoin::PublicKey {
     fn is_compressed(&self) -> bool {
         self.compressed
-    }
-    fn to_bytes(&self) -> Vec<u8> {
-        bitcoin::PublicKey::to_bytes(*self)
     }
     fn identifier(&self) -> String {
         use alloc::string::ToString;
         self.to_string()
+    }
+    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait> {
+        Some(self)
+    }
+    fn derive(&self, _: u32) -> Result<Box<dyn DefiniteKeyTrait>, String> {
+        Ok(Box::new(self.clone()))
+    }
+}
+
+impl DefiniteKeyTrait for bitcoin::PublicKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        bitcoin::PublicKey::to_bytes(*self)
     }
     fn push_to_script(&self, builder: Builder) -> Builder {
         builder.push_key(self)
@@ -153,16 +168,25 @@ impl KeyTypeTrait for bitcoin::PublicKey {
     }
 }
 
-impl KeyTypeTrait for bitcoin::XOnlyPublicKey {
+impl PublicKeyTrait for bitcoin::XOnlyPublicKey {
     fn is_compressed(&self) -> bool {
         true
-    }
-    fn to_bytes(&self) -> Vec<u8> {
-        self.serialize().to_vec()
     }
     fn identifier(&self) -> String {
         use alloc::string::ToString;
         self.to_string()
+    }
+    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait> {
+        Some(self)
+    }
+    fn derive(&self, _: u32) -> Result<Box<dyn DefiniteKeyTrait>, String> {
+        Ok(Box::new(self.clone()))
+    }
+}
+
+impl DefiniteKeyTrait for bitcoin::XOnlyPublicKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.serialize().to_vec()
     }
     fn push_to_script(&self, builder: Builder) -> Builder {
         builder.push_x_only_key(self)
@@ -172,10 +196,174 @@ impl KeyTypeTrait for bitcoin::XOnlyPublicKey {
     }
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Wildcard {
+    None,
+    Normal,
+}
+
+#[cfg_attr(feature = "debug", derive(Debug))]
+pub struct ExtendedKey {
+    pub origin: Option<(bip32::Fingerprint, bip32::DerivationPath)>,
+    pub key: bip32::Xpub,
+    pub path: bip32::DerivationPath,
+    pub wildcard: Wildcard,
+    pub x_only: bool,
+}
+
+impl PublicKeyTrait for ExtendedKey {
+    fn is_compressed(&self) -> bool {
+        true
+    }
+    fn identifier(&self) -> String {
+        use alloc::string::ToString;
+        match self.origin {
+            Some((fingerprint, _)) => {
+                fingerprint.to_string()
+            }
+            None => self.key.fingerprint().to_string(),
+        }
+    }
+    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait> {
+        None
+    }
+    fn derive(&self, index: u32) -> Result<Box<dyn DefiniteKeyTrait>, String> {
+        let secp = secp256k1::Secp256k1::new();
+
+        let mut path = self.path.clone();
+        if let Wildcard::Normal = self.wildcard {
+            path = path.child(bip32::ChildNumber::from_normal_idx(index).map_err(|e| alloc::format!("{:?}", e))?);
+        }
+
+        let pubkey = self.key.derive_pub(&secp, &path).map_err(|e| alloc::format!("{:?}", e))?;
+
+        if self.x_only {
+            Ok(Box::new(bitcoin::XOnlyPublicKey::from(pubkey.public_key)))
+        } else {
+            Ok(Box::new(bitcoin::PublicKey::from(pubkey.public_key)))
+        }
+    }
+}
+
 pub fn parse_key<'a>(
     token: (&'a str, Position),
     descriptor: &Descriptor,
-) -> Result<Box<dyn KeyTypeTrait>, ParseError<'a>> {
+) -> Result<Box<dyn PublicKeyTrait>, ParseError<'a>> {
+    // Try parsing as extended key first
+    if token.0.contains("pub") {
+        // Format: [fingerprint/path]xpub.../path or just xpub.../path
+        let mut origin_fingerprint = None;
+        let mut origin_path = None;
+        let mut remaining = token.0;
+        
+        // Check if we have an origin part
+        remaining = if token.0.starts_with('[') {
+            let parts: Vec<&str> = token.0.splitn(2, ']').collect();
+            if parts.len() != 2 {
+                return Err(ParseError::InvalidKey {
+                    key: token.0,
+                    position: token.1,
+                    inner: "Invalid format: missing closing square bracket".to_string(),
+                });
+            }
+
+            // Extract origin part [fingerprint/path]
+            let origin_part = &parts[0][1..]; // Remove the leading '['
+            if origin_part.len() < 9 {
+                return Err(ParseError::InvalidKey {
+                    key: token.0,
+                    position: token.1,
+                    inner: "Invalid origin format".to_string(),
+                });
+            }
+
+            // Parse fingerprint
+            let fingerprint_part = &origin_part[..8];
+            origin_fingerprint = Some(bip32::Fingerprint::from_str(fingerprint_part).map_err(|e| {
+                ParseError::InvalidKey {
+                    key: token.0,
+                    position: token.1,
+                    inner: alloc::format!("{:?}", e),
+                }
+            })?);
+
+            let remaining = &origin_part[8..];
+            if !remaining.is_empty() {
+                // Parse origin path
+                let origin_path_str = alloc::format!("m{}", &remaining[..(remaining.len() - 1)]);
+                origin_path = Some(bip32::DerivationPath::from_str(&origin_path_str).map_err(|e| {
+                    ParseError::InvalidKey {
+                        key: token.0,
+                        position: token.1,
+                        inner: alloc::format!("{:?}: {origin_path_str}", e),
+                    }
+                })?);
+            }
+
+            parts[1]
+        } else {
+            token.0
+        };
+
+        let mut wildcard = Wildcard::None;
+        let x_only = *descriptor == Descriptor::Tr;
+
+        let parts = remaining.splitn(2, '/').collect::<Vec<&str>>();
+        let key_part = parts[0];
+        let suffix = parts.get(1);
+        let path_str = suffix.map(|suffix| {
+            let mut path_str = alloc::format!("m/{}", suffix);
+            
+            // Check for wildcard
+            if path_str.ends_with("/*") {
+                wildcard = Wildcard::Normal;
+                path_str = path_str[..path_str.len() - 2].into();
+            } else if path_str.ends_with("/*'") {
+                return Err(ParseError::InvalidKey {
+                    key: token.0,
+                    position: token.1,
+                    inner: "Invalid format: hardened wildcard not allowed".to_string(),
+                });
+            }
+
+            Ok(path_str)
+        }).transpose()?;
+
+        // Parse the key
+        let key = bip32::Xpub::from_str(key_part).map_err(|e| {
+            ParseError::InvalidKey {
+                key: token.0,
+                position: token.1,
+                inner: alloc::format!("{:?}", e)
+            }
+        })?;
+
+        // Parse the path
+        let path = match path_str {
+            Some(path_str) => bip32::DerivationPath::from_str(&path_str).map_err(|e| {
+                ParseError::InvalidKey {
+                    key: token.0,
+                    position: token.1,
+                    inner: alloc::format!("{:?}", e)
+                }
+            })?,
+            None => Default::default(),
+        };
+
+        return Ok(Box::new(ExtendedKey {
+            origin: match (origin_fingerprint, origin_path) {
+                (Some(fingerprint), Some(path)) => Some((fingerprint, path)),
+                (Some(fingerprint), None) => Some((fingerprint, Default::default())),
+                _ => None,
+            },
+            key,
+            path,
+            wildcard,
+            x_only,
+        }) as Box<dyn PublicKeyTrait>);
+    }
+
     // Get the key type based on the inner descriptor
     let key = match descriptor {
         Descriptor::Tr => {
@@ -184,15 +372,15 @@ pub fn parse_key<'a>(
                     key: token.0,
                     position: token.1,
                 },
-            )?) as Box<dyn KeyTypeTrait>
+            )?) as Box<dyn PublicKeyTrait>
         }
         _ => Box::new(bitcoin::PublicKey::from_str(token.0).map_err(|e| {
             ParseError::InvalidKey {
                 key: token.0,
                 position: token.1,
-                inner: e,
+                inner: e.to_string(),
             }
-        })?) as Box<dyn KeyTypeTrait>
+        })?) as Box<dyn PublicKeyTrait>
     };
     Ok(key)
 }
@@ -240,7 +428,7 @@ impl KeyType {
                 ParseError::InvalidKey {
                     key: token.0,
                     position: token.1,
-                    inner: e,
+                    inner: e.to_string(),
                 }
             })?),
         };
@@ -319,7 +507,7 @@ pub enum ParseError<'a> {
     InvalidKey {
         key: &'a str,
         position: Position,
-        inner: bitcoin::key::ParsePublicKeyError,
+        inner: String,
     },
     InvalidXOnlyKey {
         key: &'a str,
@@ -983,7 +1171,7 @@ fn parse_internal<'a>(
                     bitcoin::PublicKey::from_str(key).map_err(|e| ParseError::InvalidKey {
                         key,
                         position: key_column,
-                        inner: e,
+                        inner: e.to_string(),
                     })?;
                 keys.push(key);
             }
@@ -1176,5 +1364,19 @@ fn parse_bool<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError<'a>
                 found: (token, column),
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_parse_key() {
+        let key = "[aabbccdd/10'/123]tpubDAenfwNu5GyCJWv8oqRAckdKMSUoZjgVF5p8WvQwHQeXjDhAHmGrPa4a4y2Fn7HF2nfCLefJanHV3ny1UY25MRVogizB2zRUdAo7Tr9XAjm/10/*";
+        let key = parse_key((key, 0), &crate::descriptor::Descriptor::Wpkh).unwrap();
+        dbg!(&key);
+        let derived = key.derive(22).unwrap();
+        dbg!(&derived);
     }
 }
