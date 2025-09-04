@@ -31,6 +31,7 @@ fn main() {
             "wsh(uuzuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu:0)".to_string(),
             "wsh(uuzuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu:0)".to_string(),
             "sh(undvuuuuuuullllllluundvuuuuuuullllllluu:0)".to_string(),
+            "sh(u:after(05))".to_string(),
         ];
 
         for script in scripts {
@@ -82,11 +83,11 @@ fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
     println!("bitcoin script size: {} bytes", script_buf.len());
 
     //println!("nodes: {:?}", ctx.nodes);
-    if true {
-        // let satisfied = ctx
-        //     .satisfy(&TestSatisfier {})
-        //     .map_err(Error::Satisfaction)?;
-        // println!("satisfied: {:?}", satisfied.sat);
+    if false {
+        let satisfied = ctx
+            .satisfy(&TestSatisfier {})
+            .map_err(Error::Satisfaction)?;
+        println!("satisfied: {:?}", satisfied.sat);
     }
 
     Ok(())
