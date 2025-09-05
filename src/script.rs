@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use bitcoin::{
-    PubkeyHash, ScriptBuf, hashes::Hash, key::ParsePublicKeyError, opcodes, script::Builder,
+    key::ParsePublicKeyError, opcodes, script::Builder, Address, Network, PubkeyHash, ScriptBuf
 };
 
 use crate::{
@@ -21,15 +21,58 @@ pub enum ScriptBuilderError<'a> {
         key: &'a str,
     },
     NonDefiniteKey(alloc::string::String),
+
+    NoAddressForm,
 }
 
-#[inline]
 pub fn build_script<'a>(ctx: &ParserContext<'a>) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
     let mut script_builder = ScriptBuilder::new();
 
     let mut builder = Builder::new();
     builder = script_builder.build_fragment(ctx, ctx.get_root(), builder)?;
     Ok(builder.into_script())
+}
+
+pub fn build_address<'a>(ctx: &ParserContext<'a>, network: Network) -> Result<Address, ScriptBuilderError<'a>> {
+    match ctx.descriptor() {
+        Descriptor::Bare => Err(ScriptBuilderError::NoAddressForm),
+        Descriptor::Pkh => {
+            let mut key = None;
+            ctx.iterate_keys(|k| key = Some(k.clone()));
+            let key = key.expect("One key is always present");
+            let key = key.as_definite_key().ok_or_else(|| ScriptBuilderError::NonDefiniteKey(key.identifier()))?;
+
+            let key = bitcoin::PublicKey::from_slice(&key.to_bytes()).expect("Valid key");
+            Ok(Address::p2pkh(key, network))
+        },
+        Descriptor::Wpkh => {
+            let mut key = None;
+            ctx.iterate_keys(|k| key = Some(k.clone()));
+            let key = key.expect("One key is always present");
+            let key = key.as_definite_key().ok_or_else(|| ScriptBuilderError::NonDefiniteKey(key.identifier()))?;
+
+            let key = bitcoin::CompressedPublicKey::from_slice(&key.to_bytes()).expect("Valid key");
+
+            if ctx.is_wrapped() {
+                Ok(Address::p2shwpkh(&key, network))
+            } else {
+                Ok(Address::p2wpkh(&key, network))
+            }
+        },
+        Descriptor::Sh => {
+            let script = build_script(ctx)?;
+            Ok(Address::p2sh(script.as_script(), network).expect("Rules validated by parser"))
+        },
+        Descriptor::Wsh => {
+            let script = build_script(ctx)?;
+            if ctx.is_wrapped() {
+                Ok(Address::p2shwsh(script.as_script(), network))
+            } else {
+                Ok(Address::p2wsh(script.as_script(), network))
+            }
+        },
+        Descriptor::Tr => unimplemented!()
+    }
 }
 
 struct ScriptBuilder<'a> {
