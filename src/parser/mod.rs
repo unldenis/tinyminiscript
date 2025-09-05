@@ -373,6 +373,7 @@ impl<'a> ParserContext<'a> {
     }
 
     #[inline]
+    #[cfg(feature = "satisfy")]
     pub fn satisfy(&self, satisfier: &dyn Satisfier) -> Result<Satisfactions, SatisfyError> {
         satisfy::satisfy(self, satisfier, &self.get_root())
     }
