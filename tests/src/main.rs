@@ -49,7 +49,7 @@ fn main() {
     let script = format!("wpkh({})#test", key);
 
     let mut ctx = tinyminiscript::parse_script(&script).unwrap();
-    ctx.iterate_keys(|key| {
+    ctx.iterate_keys_mut(|key| {
         println!("before : {:?}", key.inner);
 
         let derived = key.inner.derive(22).unwrap();

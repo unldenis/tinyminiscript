@@ -7,29 +7,46 @@ use bitcoin::hashes::Hash;
 use bitcoin::{PubkeyHash, script::Builder, secp256k1};
 
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 
 use crate::descriptor::Descriptor;
 use crate::parser::{ParseError, Position};
 
 #[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Clone)]
 /// A token for a public key.
 pub struct KeyToken {
-    pub inner: Box<dyn PublicKeyTrait>,
+    pub inner: Rc<dyn PublicKeyTrait>,
 }
 
-impl Deref for KeyToken {
-    type Target = Box<dyn PublicKeyTrait>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+impl KeyToken {
+    pub fn as_extended_key(&self) -> Option<Rc<ExtendedKey>> {
+        let rc = Rc::clone(&self.inner) as Rc<dyn core::any::Any>;
+        rc.downcast::<ExtendedKey>().ok()
     }
 }
 
-pub trait PublicKeyTrait: core::fmt::Debug {
+impl Deref for KeyToken {
+    type Target = dyn PublicKeyTrait;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.deref()
+    }
+}
+
+#[cfg(feature = "debug")]
+pub trait PublicKeyTrait: core::fmt::Debug + core::any::Any {
     fn is_compressed(&self) -> bool;
     fn identifier(&self) -> String;
     fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait>;
-    fn derive(&self, index: u32) -> Result<Box<dyn DefiniteKeyTrait>, String>;
+    fn derive(&self, index: u32) -> Result<Rc<dyn DefiniteKeyTrait>, String>;
+}
+#[cfg(not(feature = "debug"))]
+pub trait PublicKeyTrait: core::any::Any {
+    fn is_compressed(&self) -> bool;
+    fn identifier(&self) -> String;
+    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait>;
+    fn derive(&self, index: u32) -> Result<Rc<dyn DefiniteKeyTrait>, String>;
 }
 
 pub trait DefiniteKeyTrait: PublicKeyTrait {
@@ -49,8 +66,8 @@ impl PublicKeyTrait for bitcoin::PublicKey {
     fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait> {
         Some(self)
     }
-    fn derive(&self, _: u32) -> Result<Box<dyn DefiniteKeyTrait>, String> {
-        Ok(Box::new(self.clone()))
+    fn derive(&self, _: u32) -> Result<Rc<dyn DefiniteKeyTrait>, String> {
+        Ok(Rc::new(self.clone()))
     }
 }
 
@@ -77,8 +94,8 @@ impl PublicKeyTrait for bitcoin::XOnlyPublicKey {
     fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait> {
         Some(self)
     }
-    fn derive(&self, _: u32) -> Result<Box<dyn DefiniteKeyTrait>, String> {
-        Ok(Box::new(self.clone()))
+    fn derive(&self, _: u32) -> Result<Rc<dyn DefiniteKeyTrait>, String> {
+        Ok(Rc::new(self.clone()))
     }
 }
 
@@ -101,7 +118,17 @@ pub enum Wildcard {
     Normal,
 }
 
+impl core::fmt::Display for Wildcard {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Wildcard::None => write!(f, ""),
+            Wildcard::Normal => write!(f, "/*"),
+        }
+    }
+}
+
 #[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Clone)]
 pub struct ExtendedKey {
     pub origin: Option<(bip32::Fingerprint, bip32::DerivationPath)>,
     pub key: bip32::Xpub,
@@ -124,7 +151,7 @@ impl PublicKeyTrait for ExtendedKey {
     fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait> {
         None
     }
-    fn derive(&self, index: u32) -> Result<Box<dyn DefiniteKeyTrait>, String> {
+    fn derive(&self, index: u32) -> Result<Rc<dyn DefiniteKeyTrait>, String> {
         let secp = secp256k1::Secp256k1::new();
 
         let mut path = self.path.clone();
@@ -141,10 +168,26 @@ impl PublicKeyTrait for ExtendedKey {
             .map_err(|e| alloc::format!("{:?}", e))?;
 
         if self.x_only {
-            Ok(Box::new(bitcoin::XOnlyPublicKey::from(pubkey.public_key)))
+            Ok(Rc::new(bitcoin::XOnlyPublicKey::from(pubkey.public_key)))
         } else {
-            Ok(Box::new(bitcoin::PublicKey::from(pubkey.public_key)))
+            Ok(Rc::new(bitcoin::PublicKey::from(pubkey.public_key)))
         }
+    }
+}
+
+impl core::fmt::Display for ExtendedKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        use alloc::string::ToString;
+
+        if let Some((fingerprint, path)) = &self.origin {
+            write!(f, "[{fingerprint}{}{}]", if path.is_empty() { "" } else { "/" }, &path.to_string() )?;
+        }
+
+        write!(f, "{}", self.key)?;
+        write!(f, "{}{}", if self.path.is_empty() { "" } else { "/" }, &self.path.to_string())?;
+        write!(f, "{}", self.wildcard)?;
+
+        Ok(())
     }
 }
 
@@ -194,7 +237,7 @@ pub fn parse_key<'a>(
             let remaining = &origin_part[8..];
             if !remaining.is_empty() {
                 // Parse origin path
-                let origin_path_str = alloc::format!("m{}", &remaining[..(remaining.len() - 1)]);
+                let origin_path_str = alloc::format!("m{}", &remaining);
                 origin_path = Some(bip32::DerivationPath::from_str(&origin_path_str).map_err(
                     |_| ParseError::InvalidKey {
                         key: token.0,
@@ -254,7 +297,7 @@ pub fn parse_key<'a>(
             None => Default::default(),
         };
 
-        let key = Box::new(ExtendedKey {
+        let key = ExtendedKey {
             origin: match (origin_fingerprint, origin_path) {
                 (Some(fingerprint), Some(path)) => Some((fingerprint, path)),
                 (Some(fingerprint), None) => Some((fingerprint, Default::default())),
@@ -264,29 +307,31 @@ pub fn parse_key<'a>(
             path,
             wildcard,
             x_only,
+        };
+        return Ok(KeyToken {
+            inner: Rc::new(key),
         });
-        return Ok(KeyToken { inner: key });
     }
 
     // Get the key type based on the inner descriptor
     let key = match descriptor {
-        Descriptor::Tr => Box::new(bitcoin::XOnlyPublicKey::from_str(token.0).map_err(|_| {
+        Descriptor::Tr => Rc::new(bitcoin::XOnlyPublicKey::from_str(token.0).map_err(|_| {
             ParseError::InvalidXOnlyKey {
                 key: token.0,
                 position: token.1,
             }
-        })?) as Box<dyn PublicKeyTrait>,
+        })?) as Rc<dyn PublicKeyTrait>,
         _ => {
-            Box::new(
-                bitcoin::PublicKey::from_str(token.0).map_err(|e| ParseError::InvalidKey {
-                    key: token.0,
-                    position: token.1,
-                    inner: "Invalid bitcoin::PublicKey key",
-                })?,
-            ) as Box<dyn PublicKeyTrait>
+            Rc::new(bitcoin::PublicKey::from_str(token.0).map_err(|_| ParseError::InvalidKey {
+                key: token.0,
+                position: token.1,
+                inner: "Invalid bitcoin::PublicKey key",
+            })?)
         }
     };
-    Ok(KeyToken { inner: key })
+    Ok(KeyToken {
+        inner: key
+    })
 }
 
 #[cfg(test)]

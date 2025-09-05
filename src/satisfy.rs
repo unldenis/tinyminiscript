@@ -181,6 +181,7 @@ const UNAVAILABLE: Satisfaction = Satisfaction {
 
 /// Satisfy is a function that satisfies a miniscript expression.
 #[doc = bitcoin_definition_link!("8333aa5302902f6be929c30b3c2b4e91c6583224", "script/miniscript.h", 1186)]
+#[cfg(feature = "satisfy")]
 pub fn satisfy<'a>(
     ctx: &ParserContext<'a>,
     satisfier: &dyn Satisfier,
