@@ -143,6 +143,16 @@ impl<'a> ASTVisitor<'a, ()> for DescriptorValidator<'a> {
                         found: ctx.descriptor(),
                     });
                 }
+
+                // Already parsing valid keys in the parser
+
+                // for key in keys.iter() {
+                //     if !key.is_compressed() {
+                //         return Err(DescriptorVisitorError::PublicKeyNotCompressed {
+                //             position: node.position,
+                //         });
+                //     }
+                // }
             }
             Fragment::MultiA { k, keys } => {
                 // Tapscript only
@@ -153,6 +163,16 @@ impl<'a> ASTVisitor<'a, ()> for DescriptorValidator<'a> {
                         found: ctx.descriptor(),
                     });
                 }
+
+                // Already parsing valid keys in the parser
+
+                // for key in keys.iter() {
+                //     if !key.is_compressed() {
+                //         return Err(DescriptorVisitorError::PublicKeyNotCompressed {
+                //             position: node.position,
+                //         });
+                //     }
+                // }
             }
             Fragment::Identity { identity_type, x } => {
                 self.visit_ast_by_index(ctx, *x)?;

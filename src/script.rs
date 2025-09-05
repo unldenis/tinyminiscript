@@ -193,7 +193,11 @@ impl<'a> ScriptBuilder<'a> {
                 let mut builder = builder.push_int(*k as i64);
                 for key in keys {
                     // Multi only supports public keys
-                    builder = builder.push_key(key);
+                    let key = match key.as_definite_key() {
+                        Some(k) => k,
+                        None => return Err(ScriptBuilderError::NonDefiniteKey(key.identifier())),
+                    };
+                    builder = key.push_to_script(builder);
                 }
                 builder = builder.push_int(keys.len() as i64);
                 builder = builder.push_opcode(opcodes::all::OP_CHECKMULTISIG);
@@ -202,8 +206,11 @@ impl<'a> ScriptBuilder<'a> {
             Fragment::MultiA { k, keys } => {
                 let mut builder = builder;
                 for key in keys {
-                    // MultiA only supports xonly keys
-                    builder = builder.push_x_only_key(key);
+                    let key = match key.as_definite_key() {
+                        Some(k) => k,
+                        None => return Err(ScriptBuilderError::NonDefiniteKey(key.identifier())),
+                    };
+                    builder = key.push_to_script(builder);
 
                     builder = builder.push_opcode(opcodes::all::OP_CHECKSIG);
                     builder = builder.push_opcode(opcodes::all::OP_ADD);

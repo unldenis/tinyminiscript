@@ -9,7 +9,7 @@ fn main() {
     let x_only = "0202020202020202020202020202020202020202020202020202020202020202";
     let pub_key = "020202020202020202020202020202020202020202020202020202020202020202";
 
-    if false {
+    if true {
         let scripts = vec![
             "sh(uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuunuuuuunuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuunuuuuunuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu:0)".to_string(),
             format!("tr(and_v(v:pk({}),pk({})))", x_only, x_only),

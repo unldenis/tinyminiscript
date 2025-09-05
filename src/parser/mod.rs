@@ -149,13 +149,13 @@ pub enum Fragment<'a> {
     /// (P2WSH only)
     Multi {
         k: i32,
-        keys: Vec<bitcoin::PublicKey>,
+        keys: Vec<KeyToken>,
     },
     /// multi_a(k,key1,...,keyn)
     /// (Tapscript only)
     MultiA {
         k: i32,
-        keys: Vec<bitcoin::XOnlyPublicKey>,
+        keys: Vec<KeyToken>,
     },
 
     Identity {
@@ -390,6 +390,16 @@ impl<'a> ParserContext<'a> {
             .for_each(|node| match &mut node.fragment {
                 Fragment::PkK { key } => callback(key),
                 Fragment::PkH { key } => callback(key),
+                Fragment::Multi { keys, k } => {
+                    for key in keys.iter_mut() {
+                        callback(key);
+                    }
+                }
+                Fragment::MultiA { keys, k } => {
+                    for key in keys.iter_mut() {
+                        callback(key);
+                    }
+                }
                 _ => (),
             });
     }
@@ -401,6 +411,18 @@ impl<'a> ParserContext<'a> {
                 Fragment::PkK { key } | Fragment::PkH { key } => {
                     let derived = key.derive(index)?;
                     key.inner = derived;
+                }
+                Fragment::Multi { keys, k } => {
+                    for key in keys.iter_mut() {
+                        let derived = key.derive(index)?;
+                        key.inner = derived;
+                    }
+                }
+                Fragment::MultiA { keys, k } => {
+                    for key in keys.iter_mut() {
+                        let derived = key.derive(index)?;
+                        key.inner = derived;
+                    }
                 }
                 _ => (),
             }
@@ -975,7 +997,9 @@ fn parse_internal<'a>(
                                 inner: "Invalid bitcoin::PublicKey key",
                             }
                         })?;
-                        keys.push(key);
+                        keys.push(KeyToken {
+                            inner: Box::new(key),
+                        });
                     }
 
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
@@ -1014,7 +1038,9 @@ fn parse_internal<'a>(
                                 position: key_column,
                             }
                         })?;
-                        keys.push(key);
+                        keys.push(KeyToken {
+                            inner: Box::new(key),
+                        });
                     }
 
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;

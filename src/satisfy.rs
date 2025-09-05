@@ -418,7 +418,7 @@ pub fn satisfy<'a>(
 
             for i in 0..keys.len() {
                 let (sig, avail) = satisfier
-                    .sign(&keys[i])
+                    .sign(keys[i].inner.deref())
                     .ok_or(SatisfyError::MissingSignature(keys[i].identifier()))?;
 
                 // Compute signature stack for just the i'th key.
@@ -477,9 +477,9 @@ pub fn satisfy<'a>(
                 // Get the signature for the i'th key in reverse order (the signature for the first key needs to
                 // be at the top of the stack, contrary to CHECKMULTISIG's satisfaction).
                 let key_idx = n - 1 - i;
-                let key_type = keys[key_idx].clone();
+                let key_type = &keys[key_idx];
                 let (sig, avail) = satisfier
-                    .sign(&key_type)
+                    .sign(key_type.inner.deref())
                     .ok_or(SatisfyError::MissingSignature(key_type.identifier()))?;
 
                 // Compute signature stack for just this key.
