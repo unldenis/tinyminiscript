@@ -240,7 +240,7 @@ pub fn parse_key<'a>(
             let remaining = &origin_part[8..];
             if !remaining.is_empty() {
                 // Parse origin path
-                let origin_path_str = alloc::format!("m{}", &remaining[..(remaining.len() - 1)]);
+                let origin_path_str = alloc::format!("m{}", &remaining);
                 origin_path = Some(bip32::DerivationPath::from_str(&origin_path_str).map_err(
                     |_| ParseError::InvalidKey {
                         key: token.0,
