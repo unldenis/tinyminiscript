@@ -40,7 +40,15 @@ impl Deref for KeyToken {
     }
 }
 
+#[cfg(feature = "debug")]
 pub trait PublicKeyTrait: core::fmt::Debug {
+    fn is_compressed(&self) -> bool;
+    fn identifier(&self) -> String;
+    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait>;
+    fn derive(&self, index: u32) -> Result<Box<dyn DefiniteKeyTrait>, String>;
+}
+#[cfg(not(feature = "debug"))]
+pub trait PublicKeyTrait {
     fn is_compressed(&self) -> bool;
     fn identifier(&self) -> String;
     fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait>;
