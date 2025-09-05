@@ -46,7 +46,7 @@ fn main() {
     }
 
     let key = "[aabbccdd/10'/123]tpubDAenfwNu5GyCJWv8oqRAckdKMSUoZjgVF5p8WvQwHQeXjDhAHmGrPa4a4y2Fn7HF2nfCLefJanHV3ny1UY25MRVogizB2zRUdAo7Tr9XAjm/10/*";
-    let script = format!("sh(pk({}))", key);
+    let script = format!("wpkh({})", key);
 
     let mut ctx = tinyminiscript::parse_script(&script).unwrap();
     ctx.iterate_keys(|key| {

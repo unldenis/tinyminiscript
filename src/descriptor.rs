@@ -79,7 +79,6 @@ impl<'a> ASTVisitor<'a, ()> for DescriptorValidator<'a> {
             Fragment::Descriptor { descriptor, inner } => {
                 self.visit_ast_by_index(ctx, *inner)?;
             }
-
             Fragment::False => {}
             Fragment::True => {}
             Fragment::PkK { key } | Fragment::PkH { key } => match &ctx.descriptor() {
@@ -158,6 +157,16 @@ impl<'a> ASTVisitor<'a, ()> for DescriptorValidator<'a> {
             Fragment::Identity { identity_type, x } => {
                 self.visit_ast_by_index(ctx, *x)?;
             }
+            Fragment::RawPkH { key } => match ctx.descriptor() {
+                Descriptor::Wpkh => {
+                    if !key.is_compressed() {
+                        return Err(DescriptorVisitorError::PublicKeyNotCompressed {
+                            position: node.position,
+                        });
+                    }
+                }
+                _ => {}
+            },
         }
         Ok(())
     }

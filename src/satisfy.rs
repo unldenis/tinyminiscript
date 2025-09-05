@@ -514,5 +514,22 @@ pub fn satisfy<'a>(
         Fragment::Descriptor { descriptor, inner } => {
             satisfy(ctx, satisfier, &ctx.get_node(*inner))
         }
+        Fragment::RawPkH { key } => {
+            let (sig, avail) = satisfier
+                .sign(key.inner.deref())
+                .ok_or(SatisfyError::MissingSignature(key.identifier()))?;
+
+            let key = match key.as_definite_key() {
+                Some(k) => k,
+                None => return Err(SatisfyError::NonDefiniteKey(key.identifier())),
+            };
+
+            Ok(Satisfactions::new(
+                zero().and(&witness(&key.to_bytes())),
+                witness(sig.as_slice())
+                    .set_available(avail)
+                    .and(&witness(&key.to_bytes())),
+            ))
+        }
     }
 }

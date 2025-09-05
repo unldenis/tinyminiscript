@@ -264,6 +264,20 @@ impl<'a> ScriptBuilder<'a> {
                 let builder = self.build_fragment(ctx, ctx.get_node(*inner), builder)?;
                 Ok(builder)
             }
+            Fragment::RawPkH { key } => {
+                let key = match key.as_definite_key() {
+                    Some(k) => k,
+                    None => return Err(ScriptBuilderError::NonDefiniteKey(key.identifier())),
+                };
+                let hash: PubkeyHash = key.pubkey_hash();
+
+                builder = builder
+                    .push_opcode(opcodes::all::OP_DUP)
+                    .push_opcode(opcodes::all::OP_HASH160)
+                    .push_slice(&hash)
+                    .push_opcode(opcodes::all::OP_EQUALVERIFY);
+                Ok(builder)
+            }
         }
     }
 }

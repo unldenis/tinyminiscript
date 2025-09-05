@@ -158,8 +158,6 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 false,
                 0,
             )),
-            // Fragment::Pk { key } => Ok(TypeInfo::new(MINISCRIPT_TYPE_K)),
-            // Fragment::Pkh { key } => Ok(TypeInfo::new(MINISCRIPT_TYPE_K)),
             Fragment::Older { n } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_Z,
@@ -202,7 +200,6 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 true,
                 0,
             )),
-
             Fragment::AndOr { x, y, z } => {
                 // X is Bdu; Y and Z are both B, K, or V
                 let x_type = self.visit_ast_by_index(ctx, *x)?;
@@ -384,7 +381,6 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                     1 + cmp::max(x_type.tree_height, y_type.tree_height),
                 ))
             }
-            // Fragment::AndN { x, y } => Ok(TypeInfo::new(MINISCRIPT_TYPE_B)),
             Fragment::OrB { x, z } => {
                 // X is Bd; Z is Wd
                 let x_type = self.visit_ast_by_index(ctx, *x)?;
@@ -1014,6 +1010,13 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 }
                 Ok(inner_type)
             }
+            Fragment::RawPkH { key } => Ok(TypeInfo::new(
+                MINISCRIPT_TYPE_B,
+                PROPERTY_N | PROPERTY_D | PROPERTY_U,
+                24,
+                false,
+                0,
+            )),
         }
     }
 }

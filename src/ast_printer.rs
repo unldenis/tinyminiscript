@@ -83,15 +83,6 @@ impl ASTPrinter {
                 self.write_indent();
                 self.output.push_str(")\n");
             }
-            // Fragment::AndN { x, y } => {
-            //     self.output.push_str("AndN(\n");
-            //     self.indent();
-            //     self.print_node(x);
-            //     self.print_node(y);
-            //     self.dedent();
-            //     self.write_indent();
-            //     self.output.push_str(")\n");
-            // }
             Fragment::OrB { x, z } => {
                 self.output.push_str("OrB(\n");
                 self.indent();
@@ -163,6 +154,9 @@ impl ASTPrinter {
                 self.dedent();
                 self.write_indent();
                 self.output.push_str(")\n");
+            }
+            Fragment::RawPkH { key } => {
+                self.output.push_str(&format!("RawPkH({:?})\n", key));
             }
         }
     }
