@@ -408,6 +408,7 @@ impl<'a> ParserContext<'a> {
             .for_each(|node| match &mut node.fragment {
                 Fragment::PkK { key } => callback(key),
                 Fragment::PkH { key } => callback(key),
+                Fragment::RawPkH { key } => callback(key),
                 Fragment::Multi { keys, k } => {
                     for key in keys.iter_mut() {
                         callback(key);
@@ -428,6 +429,7 @@ impl<'a> ParserContext<'a> {
             .for_each(|node| match &node.fragment {
                 Fragment::PkK { key } => callback(key),
                 Fragment::PkH { key } => callback(key),
+                Fragment::RawPkH { key } => callback(key),
                 _ => (),
             });
     }
@@ -436,7 +438,7 @@ impl<'a> ParserContext<'a> {
     pub fn derive(&mut self, index: u32) -> Result<(), String> {
         for node in &mut self.nodes {
             match &mut node.fragment {
-                Fragment::PkK { key } | Fragment::PkH { key } => {
+                Fragment::PkK { key } | Fragment::PkH { key } | Fragment::RawPkH { key } => {
                     let derived = key.derive(index)?;
                     key.inner = alloc::rc::Rc::new(derived);
                 }
