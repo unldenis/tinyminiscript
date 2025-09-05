@@ -45,6 +45,7 @@ pub type Position = usize;
 // AST
 
 #[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Clone)]
 pub struct AST<'a> {
     pub position: Position,
     pub fragment: Fragment<'a>,
@@ -53,6 +54,7 @@ pub struct AST<'a> {
 pub type NodeIndex = u16;
 
 #[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Clone)]
 pub enum Fragment<'a> {
     // Basic Fragments
     /// 0
@@ -174,7 +176,7 @@ pub enum Fragment<'a> {
     },
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum IdentityType {
     A,
     S,
@@ -271,6 +273,7 @@ pub enum ParseError<'a> {
     InvalidChecksum,
 }
 
+#[derive(Clone)]
 pub struct ParserContext<'a> {
     tokens: Vec<(&'a str, usize)>,
     current_token: usize,
@@ -399,7 +402,7 @@ impl<'a> ParserContext<'a> {
 
     /// Iterate over all the keys.
     /// Not using a Visitor pattern because it's not needed for the current use case.
-    pub fn iterate_keys(&mut self, mut callback: impl FnMut(&mut KeyToken)) {
+    pub fn iterate_keys_mut(&mut self, mut callback: impl FnMut(&mut KeyToken)) {
         self.nodes
             .iter_mut()
             .for_each(|node| match &mut node.fragment {
@@ -419,29 +422,39 @@ impl<'a> ParserContext<'a> {
             });
     }
 
+    pub fn iterate_keys(&self, mut callback: impl FnMut(&KeyToken)) {
+        self.nodes
+            .iter()
+            .for_each(|node| match &node.fragment {
+                Fragment::PkK { key } => callback(key),
+                Fragment::PkH { key } => callback(key),
+                _ => (),
+            });
+    }
+
     /// Derive all the keys in the AST.
     pub fn derive(&mut self, index: u32) -> Result<(), String> {
         for node in &mut self.nodes {
             match &mut node.fragment {
                 Fragment::PkK { key } | Fragment::PkH { key } => {
                     let derived = key.derive(index)?;
-                    key.inner = derived;
+                    key.inner = alloc::rc::Rc::new(derived);
                 }
                 Fragment::Multi { keys, k } => {
                     for key in keys.iter_mut() {
                         let derived = key.derive(index)?;
-                        key.inner = derived;
+                        key.inner = alloc::rc::Rc::new(derived);
                     }
                 }
                 Fragment::MultiA { keys, k } => {
                     for key in keys.iter_mut() {
                         let derived = key.derive(index)?;
-                        key.inner = derived;
+                        key.inner = alloc::rc::Rc::new(derived);
                     }
                 }
                 Fragment::RawPkH { key } => {
                     let derived = key.derive(index)?;
-                    key.inner = derived;
+                    key.inner = alloc::rc::Rc::new(derived);
                 }
                 _ => (),
             }
@@ -1024,7 +1037,7 @@ fn parse_internal<'a>(
                             }
                         })?;
                         keys.push(KeyToken {
-                            inner: Box::new(key),
+                            inner: alloc::rc::Rc::new(Box::new(key)),
                         });
                     }
 
@@ -1065,7 +1078,7 @@ fn parse_internal<'a>(
                             }
                         })?;
                         keys.push(KeyToken {
-                            inner: Box::new(key),
+                            inner: alloc::rc::Rc::new(Box::new(key)),
                         });
                     }
 
