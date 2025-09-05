@@ -396,8 +396,8 @@ impl<'a> ParserContext<'a> {
     }
 
     #[inline]
-    pub const fn is_wrapped(&self) -> bool {
-        self.top_level_descriptor.is_some()
+    pub fn is_wrapped(&self) -> bool {
+        self.top_level_descriptor == Some(Descriptor::Sh)
     }
 
     /// Iterate over all the keys.
