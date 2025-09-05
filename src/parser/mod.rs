@@ -44,6 +44,7 @@ pub type Position = usize;
 // AST
 
 #[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Clone)]
 pub struct AST<'a> {
     pub position: Position,
     pub fragment: Fragment<'a>,
@@ -52,6 +53,7 @@ pub struct AST<'a> {
 pub type NodeIndex = u16;
 
 #[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Clone)]
 pub enum Fragment<'a> {
     // Basic Fragments
     /// 0
@@ -174,7 +176,7 @@ pub enum Fragment<'a> {
 }
 
 #[cfg_attr(feature = "debug", derive(Debug))]
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum IdentityType {
     A,
     S,
@@ -255,6 +257,7 @@ pub enum ParseError<'a> {
     },
 }
 
+#[derive(Clone)]
 pub struct ParserContext<'a> {
     tokens: Vec<(&'a str, usize)>,
     current_token: usize,
@@ -383,10 +386,20 @@ impl<'a> ParserContext<'a> {
 
     /// Iterate over all the keys.
     /// Not using a Visitor pattern because it's not needed for the current use case.
-    pub fn iterate_keys(&mut self, mut callback: impl FnMut(&mut KeyToken)) {
+    pub fn iterate_keys_mut(&mut self, mut callback: impl FnMut(&mut KeyToken)) {
         self.nodes
             .iter_mut()
             .for_each(|node| match &mut node.fragment {
+                Fragment::PkK { key } => callback(key),
+                Fragment::PkH { key } => callback(key),
+                _ => (),
+            });
+    }
+
+    pub fn iterate_keys(&self, mut callback: impl FnMut(&KeyToken)) {
+        self.nodes
+            .iter()
+            .for_each(|node| match &node.fragment {
                 Fragment::PkK { key } => callback(key),
                 Fragment::PkH { key } => callback(key),
                 _ => (),
@@ -399,7 +412,7 @@ impl<'a> ParserContext<'a> {
             match &mut node.fragment {
                 Fragment::PkK { key } | Fragment::PkH { key } => {
                     let derived = key.derive(index)?;
-                    key.inner = derived;
+                    key.inner = alloc::rc::Rc::new(derived);
                 }
                 _ => (),
             }

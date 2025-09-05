@@ -7,14 +7,23 @@ use bitcoin::hashes::Hash;
 use bitcoin::{PubkeyHash, script::Builder, secp256k1};
 
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 
 use crate::descriptor::Descriptor;
 use crate::parser::{ParseError, Position};
 
 #[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Clone)]
 /// A token for a public key.
 pub struct KeyToken {
-    pub inner: Box<dyn PublicKeyTrait>,
+    pub inner: Rc<Box<dyn PublicKeyTrait>>,
+}
+
+impl KeyToken {
+    pub fn as_extended_key<'a>(&'a self) -> Option<&'a ExtendedKey> {
+        let s = self as &'a dyn core::any::Any;
+        s.downcast_ref::<ExtendedKey>()
+    }
 }
 
 impl Deref for KeyToken {
@@ -101,7 +110,17 @@ pub enum Wildcard {
     Normal,
 }
 
+impl core::fmt::Display for Wildcard {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Wildcard::None => write!(f, ""),
+            Wildcard::Normal => write!(f, "/*"),
+        }
+    }
+}
+
 #[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Clone)]
 pub struct ExtendedKey {
     pub origin: Option<(bip32::Fingerprint, bip32::DerivationPath)>,
     pub key: bip32::Xpub,
@@ -145,6 +164,22 @@ impl PublicKeyTrait for ExtendedKey {
         } else {
             Ok(Box::new(bitcoin::PublicKey::from(pubkey.public_key)))
         }
+    }
+}
+
+impl core::fmt::Display for ExtendedKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        use alloc::string::ToString;
+
+        if let Some((fingerprint, path)) = &self.origin {
+            write!(f, "[{fingerprint}{}{}]", if path.is_empty() { "" } else { "/" }, &path.to_string() )?;
+        }
+
+        write!(f, "{}", self.key)?;
+        write!(f, "{}{}", if self.path.is_empty() { "" } else { "/" }, &self.path.to_string())?;
+        write!(f, "{}", self.wildcard)?;
+
+        Ok(())
     }
 }
 
@@ -265,7 +300,9 @@ pub fn parse_key<'a>(
             wildcard,
             x_only,
         });
-        return Ok(KeyToken { inner: key });
+        return Ok(KeyToken {
+            inner: Rc::new(key),
+        });
     }
 
     // Get the key type based on the inner descriptor
@@ -286,7 +323,9 @@ pub fn parse_key<'a>(
             ) as Box<dyn PublicKeyTrait>
         }
     };
-    Ok(KeyToken { inner: key })
+    Ok(KeyToken {
+        inner: Rc::new(key),
+    })
 }
 
 #[cfg(test)]
