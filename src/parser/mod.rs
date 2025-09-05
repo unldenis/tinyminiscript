@@ -6,6 +6,7 @@ use bitcoin::psbt::raw::Key;
 use bitcoin::secp256k1;
 use core::str::FromStr;
 
+use crate::checksum;
 use crate::parser::keys::KeyToken;
 use crate::{
     Vec,
@@ -253,6 +254,7 @@ pub enum ParseError<'a> {
     MultiColon {
         position: Position,
     },
+    InvalidChecksum,
 }
 
 pub struct ParserContext<'a> {
@@ -461,9 +463,15 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseErr
     // should be no more tokens
     let next_token = ctx.peek_token();
     if next_token.is_some() {
-        return Err(ParseError::UnexpectedTrailingToken {
-            found: next_token.unwrap(),
-        });
+        let next_token = next_token.unwrap();
+
+        if next_token.0.starts_with("#") {
+            if checksum::verify_checksum(next_token.0).is_err() {
+                return Err(ParseError::InvalidChecksum);
+            }
+        } else {
+            return Err(ParseError::UnexpectedTrailingToken { found: next_token });
+        }
     }
 
     Ok(AST {

@@ -34,6 +34,7 @@
 #[cfg(feature = "debug")]
 /// AST printer
 mod ast_printer;
+mod checksum;
 /// Bitcoin descriptor parsing and validation
 pub mod descriptor;
 /// Limits for miniscript expressions
