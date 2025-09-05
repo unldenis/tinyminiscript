@@ -440,23 +440,19 @@ impl<'a> ParserContext<'a> {
             match &mut node.fragment {
                 Fragment::PkK { key } | Fragment::PkH { key } | Fragment::RawPkH { key } => {
                     let derived = key.derive(index)?;
-                    key.inner = alloc::rc::Rc::new(derived);
+                    key.inner = derived;
                 }
                 Fragment::Multi { keys, k } => {
                     for key in keys.iter_mut() {
                         let derived = key.derive(index)?;
-                        key.inner = alloc::rc::Rc::new(derived);
+                        key.inner = derived;
                     }
                 }
                 Fragment::MultiA { keys, k } => {
                     for key in keys.iter_mut() {
                         let derived = key.derive(index)?;
-                        key.inner = alloc::rc::Rc::new(derived);
+                        key.inner = derived;
                     }
-                }
-                Fragment::RawPkH { key } => {
-                    let derived = key.derive(index)?;
-                    key.inner = alloc::rc::Rc::new(derived);
                 }
                 _ => (),
             }
@@ -1039,7 +1035,7 @@ fn parse_internal<'a>(
                             }
                         })?;
                         keys.push(KeyToken {
-                            inner: alloc::rc::Rc::new(Box::new(key)),
+                            inner: alloc::rc::Rc::new(key),
                         });
                     }
 
@@ -1080,7 +1076,7 @@ fn parse_internal<'a>(
                             }
                         })?;
                         keys.push(KeyToken {
-                            inner: alloc::rc::Rc::new(Box::new(key)),
+                            inner: alloc::rc::Rc::new(key),
                         });
                     }
 
