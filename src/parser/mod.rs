@@ -414,7 +414,7 @@ impl<'a> ParserContext<'a> {
             match &mut node.fragment {
                 Fragment::PkK { key } | Fragment::PkH { key } | Fragment::RawPkH { key } => {
                     let derived = key.derive(index)?;
-                    key.inner = alloc::rc::Rc::new(derived);
+                    key.inner = derived;
                 }
                 _ => (),
             }
