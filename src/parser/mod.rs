@@ -377,7 +377,7 @@ impl<'a> ParserContext<'a> {
         satisfy::satisfy(self, satisfier, &self.get_root())
     }
 
-    #[cfg(feature = "debug")]
+    #[cfg(feature = "ast-printer")]
     /// Returns a tree representation of the AST.
     pub fn print_ast(&self) -> alloc::string::String {
         use crate::ast_printer;
