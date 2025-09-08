@@ -3,7 +3,6 @@ use core::marker::PhantomData;
 use crate::parser::{AST, ASTVisitor, Fragment, ParserContext, Position};
 
 /// Script descriptor
-#[cfg_attr(feature = "debug", derive(Debug))]
 #[derive(Clone, PartialEq)]
 pub enum Descriptor {
     /// A raw scriptpubkey (including pay-to-pubkey) under Legacy context
@@ -42,6 +41,19 @@ impl<'a> TryFrom<&'a str> for Descriptor {
             "wsh" => Ok(Descriptor::Wsh),
             "tr" => Ok(Descriptor::Tr),
             _ => Err(InvalidDescriptor(value)),
+        }
+    }
+}
+
+impl core::fmt::Debug for Descriptor {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Descriptor::Bare => write!(f, "bare"),
+            Descriptor::Pkh => write!(f, "pkh"),
+            Descriptor::Sh => write!(f, "sh"),
+            Descriptor::Wpkh => write!(f, "wpkh"),
+            Descriptor::Wsh => write!(f, "wsh"),
+            Descriptor::Tr => write!(f, "tr"),
         }
     }
 }

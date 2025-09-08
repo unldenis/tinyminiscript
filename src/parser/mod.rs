@@ -174,7 +174,6 @@ pub enum Fragment<'a> {
     },
 }
 
-#[cfg_attr(feature = "debug", derive(Debug))]
 #[derive(PartialEq)]
 pub enum IdentityType {
     A,
@@ -184,6 +183,21 @@ pub enum IdentityType {
     V,
     J,
     N,
+}
+
+#[cfg(feature = "debug")]
+impl core::fmt::Debug for IdentityType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            IdentityType::A => write!(f, "a"),
+            IdentityType::S => write!(f, "s"),
+            IdentityType::C => write!(f, "c"),
+            IdentityType::D => write!(f, "d"),
+            IdentityType::V => write!(f, "v"),
+            IdentityType::J => write!(f, "j"),
+            IdentityType::N => write!(f, "n"),
+        }
+    }
 }
 
 // Optimized tokenization using string slices instead of owned strings
@@ -424,10 +438,21 @@ impl<'a> ParserContext<'a> {
                         key.inner = derived;
                     }
                 }
+                Fragment::RawPkH { key } => {
+                    let derived = key.derive(index)?;
+                    key.inner = derived;
+                }
                 _ => (),
             }
         }
         Ok(())
+    }
+
+    /// Serialize the AST to a string.
+    #[inline]
+    pub fn serialize(&self) -> String {
+        let mut serializer = crate::serialize::Serializer::new();
+        serializer.serialize(self)
     }
 }
 

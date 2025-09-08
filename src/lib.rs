@@ -48,6 +48,7 @@ mod macros;
 pub mod satisfy;
 /// Bitcoin script generation from parsed miniscript
 pub mod script;
+mod serialize;
 /// Type checking and correctness property validation
 pub mod type_checker;
 

@@ -11,10 +11,16 @@ use alloc::boxed::Box;
 use crate::descriptor::Descriptor;
 use crate::parser::{ParseError, Position};
 
-#[cfg_attr(feature = "debug", derive(Debug))]
 /// A token for a public key.
 pub struct KeyToken {
     pub inner: Box<dyn PublicKeyTrait>,
+}
+
+#[cfg(feature = "debug")]
+impl core::fmt::Debug for KeyToken {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.inner.identifier())
+    }
 }
 
 impl Deref for KeyToken {
@@ -103,6 +109,7 @@ pub enum Wildcard {
 
 #[cfg_attr(feature = "debug", derive(Debug))]
 pub struct ExtendedKey {
+    pub raw: String,
     pub origin: Option<(bip32::Fingerprint, bip32::DerivationPath)>,
     pub key: bip32::Xpub,
     pub path: bip32::DerivationPath,
@@ -115,11 +122,7 @@ impl PublicKeyTrait for ExtendedKey {
         true
     }
     fn identifier(&self) -> String {
-        use alloc::string::ToString;
-        match self.origin {
-            Some((fingerprint, _)) => fingerprint.to_string(),
-            None => self.key.fingerprint().to_string(),
-        }
+        self.raw.clone()
     }
     fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait> {
         None
@@ -255,6 +258,7 @@ pub fn parse_key<'a>(
         };
 
         let key = Box::new(ExtendedKey {
+            raw: token.0.into(),
             origin: match (origin_fingerprint, origin_path) {
                 (Some(fingerprint), Some(path)) => Some((fingerprint, path)),
                 (Some(fingerprint), None) => Some((fingerprint, Default::default())),
