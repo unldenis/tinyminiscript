@@ -673,7 +673,8 @@ fn parse_internal<'a>(
                         .ok_or(ParseError::UnexpectedEof { context: "older" })?;
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
-                    if n.starts_with("0") {
+                    // Check if the number starts with a digit 1-9
+                    if n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0') {
                         return Err(ParseError::UnexpectedToken {
                             expected: "Number must start with a digit 1-9",
                             found: (n, n_column),
@@ -702,7 +703,8 @@ fn parse_internal<'a>(
 
                     // check if n is i64
 
-                    if n.starts_with("0") {
+                    // Check if the number starts with a digit 1-9
+                    if n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0') {
                         return Err(ParseError::UnexpectedToken {
                             expected: "Number must start with a digit 1-9",
                             found: (n, n_column),

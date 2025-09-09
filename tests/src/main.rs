@@ -35,6 +35,8 @@ fn main() {
             "sh(u:after(05))".to_string(),
             "sh(dvu:0)".to_string(),
             "sh(wsh(dvu:0))#error".to_string(),
+            "sh(older(+1))".to_string(),
+            "sh(older(2))".to_string(),
         ];
 
         for script in scripts {
