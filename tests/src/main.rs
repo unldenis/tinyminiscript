@@ -11,6 +11,7 @@ fn main() {
 
     if true {
         let scripts = vec![
+            "sh(wsh(0))".to_string(),
             "sh(uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuunuuuuunuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuunuuuuunuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu:0)".to_string(),
             format!("tr(and_v(v:pk({}),pk({})))", x_only, x_only),
             format!("sh(wsh(and_v(v:pk({}),pk({}))))", pub_key, pub_key),
@@ -33,6 +34,7 @@ fn main() {
             "sh(undvuuuuuuullllllluundvuuuuuuullllllluu:0)".to_string(),
             "sh(u:after(05))".to_string(),
             "sh(dvu:0)".to_string(),
+            "sh(wsh(dvu:0))#error".to_string(),
         ];
 
         for script in scripts {

@@ -463,6 +463,21 @@ pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
     let root = parse_descriptor(&mut ctx)?;
     ctx.root = Some(root);
 
+
+    // should be no more tokens
+    let next_token = ctx.peek_token();
+    if next_token.is_some() {
+        let next_token = next_token.unwrap();
+        if next_token.0.starts_with("#") {
+            if checksum::verify_checksum(next_token.0).is_err() {
+                return Err(ParseError::InvalidChecksum);
+            }
+        } else {
+            return Err(ParseError::UnexpectedTrailingToken { found: next_token });
+        }
+    }
+
+
     Ok(ctx)
 }
 
@@ -506,20 +521,6 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseErr
     let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
     let inner = parse_internal(ctx, true)?;
     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
-
-    // should be no more tokens
-    let next_token = ctx.peek_token();
-    if next_token.is_some() {
-        let next_token = next_token.unwrap();
-
-        if next_token.0.starts_with("#") {
-            if checksum::verify_checksum(next_token.0).is_err() {
-                return Err(ParseError::InvalidChecksum);
-            }
-        } else {
-            return Err(ParseError::UnexpectedTrailingToken { found: next_token });
-        }
-    }
 
     Ok(AST {
         position: column,
