@@ -83,11 +83,11 @@ impl<'a> ScriptBuilder<'a> {
                 Ok(builder)
             }
             Fragment::Older { n } => {
-                builder = builder.push_int(*n).push_opcode(opcodes::all::OP_CSV);
+                builder = builder.push_int(*n as i64).push_opcode(opcodes::all::OP_CSV);
                 Ok(builder)
             }
             Fragment::After { n } => {
-                builder = builder.push_int(*n).push_opcode(opcodes::all::OP_CLTV);
+                builder = builder.push_int(*n as i64).push_opcode(opcodes::all::OP_CLTV);
                 Ok(builder)
             }
             Fragment::Sha256 { h } => {

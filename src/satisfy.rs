@@ -11,11 +11,11 @@ use crate::{
 pub trait Satisfier {
     /// CheckOlder checks if the OP_CHECKSEQUENCEVERIFY call is satisfied in the context of a
     /// transaction.
-    fn check_older(&self, locktime: i64) -> Option<bool>;
+    fn check_older(&self, locktime: u32) -> Option<bool>;
 
     /// CheckAfter checks if the OP_CHECKLOCKTIMEVERIFY call is satisfied in the context of a
     /// transaction.
-    fn check_after(&self, locktime: i64) -> Option<bool>;
+    fn check_after(&self, locktime: u32) -> Option<bool>;
 
     /// Sign generates a signature for the given public key.
     fn sign(&self, pubkey: &dyn PublicKeyTrait) -> Option<(Vec<u8>, bool)>;
@@ -159,7 +159,7 @@ impl Satisfactions {
 #[cfg_attr(feature = "debug", derive(Debug))]
 pub enum SatisfyError {
     MissingSignature(alloc::string::String),
-    MissingLockTime(i64),
+    MissingLockTime(u32),
     MissingPreimage(HashFunc),
     InvalidPreimage(HashFunc),
     NonDefiniteKey(alloc::string::String),
@@ -404,7 +404,7 @@ pub fn satisfy<'a>(
 
             // Safety check: k should be valid
             if *k as usize >= sats.len() {
-                return Err(SatisfyError::MissingLockTime(*k as i64));
+                return Err(SatisfyError::MissingLockTime(*k as u32));
             }
 
             Ok(Satisfactions::new(nsat, sats[*k as usize].clone()))
@@ -447,7 +447,7 @@ pub fn satisfy<'a>(
 
             // Safety check: k should be valid
             if *k as usize >= sats.len() {
-                return Err(SatisfyError::MissingLockTime(*k as i64));
+                return Err(SatisfyError::MissingLockTime(*k as u32));
             }
 
             Ok(Satisfactions::new(nsat, sats[*k as usize].clone()))

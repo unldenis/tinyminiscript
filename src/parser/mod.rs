@@ -73,11 +73,11 @@ pub enum Fragment<'a> {
     // Time fragments
     /// older(n)
     Older {
-        n: i64,
+        n: u32,
     },
     /// after(n)
     After {
-        n: i64,
+        n: u32,
     },
 
     // Hash Fragments
@@ -269,6 +269,10 @@ pub enum ParseError<'a> {
         position: Position,
     },
     InvalidChecksum,
+    InvalidAbsoluteLocktime {
+        locktime: u32,
+        position: Position,
+    },
 }
 
 pub struct ParserContext<'a> {
@@ -681,11 +685,16 @@ fn parse_internal<'a>(
                         });
                     }
 
-                    // check if n is i64
-                    let n = n.parse::<i64>().map_err(|_| ParseError::UnexpectedToken {
-                        expected: "i64",
+                    // check if n is u32
+                    let n = n.parse::<u32>().map_err(|_| ParseError::UnexpectedToken {
+                        expected: "u32",
                         found: (n, n_column),
                     })?;
+
+                    // check if the locktime is within the allowed range
+                    if let Err(locktime) = crate::limits::check_absolute_locktime(n) {
+                        return Err(ParseError::InvalidAbsoluteLocktime { locktime, position: n_column });
+                    }
 
                     Ok(AST {
                         position: column,
@@ -701,7 +710,7 @@ fn parse_internal<'a>(
                         .ok_or(ParseError::UnexpectedEof { context: "after" })?;
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
-                    // check if n is i64
+                    // check if n is u32
 
                     // Check if the number starts with a digit 1-9
                     if n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0') {
@@ -711,10 +720,15 @@ fn parse_internal<'a>(
                         });
                     }
 
-                    let n = n.parse::<i64>().map_err(|_| ParseError::UnexpectedToken {
-                        expected: "i64",
+                    let n = n.parse::<u32>().map_err(|_| ParseError::UnexpectedToken {
+                        expected: "u32",
                         found: (n, n_column),
                     })?;
+
+                    // check if the locktime is within the allowed range
+                    if let Err(locktime) = crate::limits::check_absolute_locktime(n) {
+                        return Err(ParseError::InvalidAbsoluteLocktime { locktime, position: n_column });
+                    }
 
                     Ok(AST {
                         position: column,
