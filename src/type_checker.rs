@@ -572,7 +572,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 let mut properties = 0;
 
                 if x_type.has_property(PROPERTY_Z) && z_type.has_property(PROPERTY_Z) {
-                    properties |= PROPERTY_Z;
+                    properties |= PROPERTY_O;
                 }
                 if x_type.has_property(PROPERTY_U) && z_type.has_property(PROPERTY_U) {
                     properties |= PROPERTY_U;
