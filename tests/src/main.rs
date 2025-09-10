@@ -38,6 +38,7 @@ fn main() {
             "sh(older(+1))".to_string(),
             "sh(older(2))".to_string(),
             "sh(u:after(3802199998))".to_string(),
+            "sh(utvjtvntvdv:0)".to_string(),
         ];
 
         for script in scripts {

@@ -1,4 +1,4 @@
-use crate::parser::{AST, ASTVisitor, Fragment, IdentityType, ParserContext, Position};
+use crate::{descriptor::Descriptor, parser::{ASTVisitor, Fragment, IdentityType, ParserContext, Position, AST}};
 use core::cmp;
 
 /// The size of an encoding of a number in Script
@@ -312,7 +312,7 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                 {
                     properties |= PROPERTY_O;
                 }
-                if y_type.has_property(PROPERTY_N)
+                if x_type.has_property(PROPERTY_N)
                     || (x_type.has_property(PROPERTY_Z) && y_type.has_property(PROPERTY_N))
                 {
                     properties |= PROPERTY_N;
@@ -880,7 +880,9 @@ impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
                         properties |= PROPERTY_O;
                         properties |= PROPERTY_N;
                         properties |= PROPERTY_D;
-                        properties |= PROPERTY_U; // TODO: Tapscript only
+                        if ctx.descriptor() == Descriptor::Tr {
+                            properties |= PROPERTY_U;
+                        }
 
                         Ok(TypeInfo::new(
                             MINISCRIPT_TYPE_B,
