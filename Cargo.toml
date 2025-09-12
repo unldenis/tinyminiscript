@@ -21,3 +21,4 @@ default = ["debug"]
 # Enable Debug trait implementations for error types
 debug = []
 ast-printer = []
+satisfy = []

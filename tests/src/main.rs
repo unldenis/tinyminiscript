@@ -1,4 +1,4 @@
-use std::{ops::Deref, str::FromStr};
+use std::{ops::Deref, str::FromStr, rc::Rc};
 
 use bitcoin::{PublicKey, XOnlyPublicKey};
 use tinyminiscript::{
@@ -56,6 +56,14 @@ fn main() {
     println!("serialized before: {}", ctx.serialize());
     ctx.derive(22).unwrap();
     println!("serialized after : {}", ctx.serialize());
+
+    ctx.iterate_keys_mut(|key| {
+        println!("before : {:?}", key.inner);
+
+        let derived = key.inner.derive(22).unwrap();
+
+        key.inner = Rc::new(derived);
+    });
 }
 #[derive(Debug)]
 enum Error<'a> {
