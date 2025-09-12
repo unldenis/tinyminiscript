@@ -275,6 +275,7 @@ pub enum ParseError<'a> {
         locktime: u32,
         position: Position,
     },
+    NonAscii,
 }
 
 #[derive(Clone)]
@@ -428,22 +429,24 @@ impl<'a> ParserContext<'a> {
     }
 
     pub fn iterate_keys(&self, mut callback: impl FnMut(&KeyToken)) {
-        self.nodes.iter().for_each(|node| match &node.fragment {
-            Fragment::PkK { key } => callback(key),
-            Fragment::PkH { key } => callback(key),
-            Fragment::RawPkH { key } => callback(key),
-            Fragment::Multi { keys, .. } => {
-                for key in keys.iter() {
-                    callback(key);
+        self.nodes
+            .iter()
+            .for_each(|node| match &node.fragment {
+                Fragment::PkK { key } => callback(key),
+                Fragment::PkH { key } => callback(key),
+                Fragment::RawPkH { key } => callback(key),
+                Fragment::Multi { keys, .. } => {
+                    for key in keys.iter() {
+                        callback(key);
+                    }
                 }
-            }
-            Fragment::MultiA { keys, .. } => {
-                for key in keys.iter() {
-                    callback(key);
-                }
-            }
-            _ => (),
-        });
+                Fragment::MultiA { keys, .. } => {
+                    for key in keys.iter() {
+                        callback(key);
+                    }
+                }   
+                _ => (),
+            });
     }
 
     /// Derive all the keys in the AST.
@@ -482,10 +485,17 @@ impl<'a> ParserContext<'a> {
 
 #[inline]
 pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
+
+    // check if the input is ascii
+    if !input.is_ascii() {
+        return Err(ParseError::NonAscii);
+    }
+
     let mut ctx = ParserContext::new(input);
 
     let root = parse_descriptor(&mut ctx)?;
     ctx.root = Some(root);
+
 
     // should be no more tokens
     let next_token = ctx.peek_token();
@@ -499,6 +509,7 @@ pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
             return Err(ParseError::UnexpectedTrailingToken { found: next_token });
         }
     }
+
 
     Ok(ctx)
 }
@@ -696,10 +707,7 @@ fn parse_internal<'a>(
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
                     // Check if the number starts with a digit 1-9
-                    if n.is_empty()
-                        || !n.chars().next().unwrap().is_ascii_digit()
-                        || n.starts_with('0')
-                    {
+                    if n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0') {
                         return Err(ParseError::UnexpectedToken {
                             expected: "Number must start with a digit 1-9",
                             found: (n, n_column),
@@ -714,10 +722,7 @@ fn parse_internal<'a>(
 
                     // check if the locktime is within the allowed range
                     if let Err(locktime) = crate::limits::check_absolute_locktime(n) {
-                        return Err(ParseError::InvalidAbsoluteLocktime {
-                            locktime,
-                            position: n_column,
-                        });
+                        return Err(ParseError::InvalidAbsoluteLocktime { locktime, position: n_column });
                     }
 
                     Ok(AST {
@@ -737,10 +742,7 @@ fn parse_internal<'a>(
                     // check if n is u32
 
                     // Check if the number starts with a digit 1-9
-                    if n.is_empty()
-                        || !n.chars().next().unwrap().is_ascii_digit()
-                        || n.starts_with('0')
-                    {
+                    if n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0') {
                         return Err(ParseError::UnexpectedToken {
                             expected: "Number must start with a digit 1-9",
                             found: (n, n_column),
@@ -754,10 +756,7 @@ fn parse_internal<'a>(
 
                     // check if the locktime is within the allowed range
                     if let Err(locktime) = crate::limits::check_absolute_locktime(n) {
-                        return Err(ParseError::InvalidAbsoluteLocktime {
-                            locktime,
-                            position: n_column,
-                        });
+                        return Err(ParseError::InvalidAbsoluteLocktime { locktime, position: n_column });
                     }
 
                     Ok(AST {

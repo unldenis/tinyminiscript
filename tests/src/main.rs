@@ -71,6 +71,15 @@ fn main() {
 
         key.inner = derived;
     });
+
+    // read file content and parse it
+    let file_content = std::fs::read_to_string("/home/user/rust/f-miniscript/fuzz/artifacts/parsing/crash-b5d31129661ca6ecf81d29d7078d8306ebb9a880").unwrap();
+    let scripts = file_content.lines().collect::<Vec<&str>>();
+    for script in scripts {
+        println!("--------------------------------");
+        println!("script: {}", script);
+        execute_script(script).unwrap();
+    }
 }
 #[derive(Debug)]
 enum Error<'a> {
