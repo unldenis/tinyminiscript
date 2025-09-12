@@ -19,7 +19,6 @@ const MAX_RECURSION_DEPTH: u32 = 402;
 #[doc = bitcoin_definition_link!("8333aa5302902f6be929c30b3c2b4e91c6583224", "script/script.h", 28)]
 pub const MAX_SCRIPT_ELEMENT_SIZE: usize = 520;
 
-
 /// Check if the absolute locktime is within the allowed range.
 pub fn check_absolute_locktime(locktime: u32) -> Result<(), u32> {
     if locktime < MIN_ABSOLUTE_LOCKTIME || locktime > MAX_ABSOLUTE_LOCKTIME {
@@ -64,4 +63,3 @@ pub fn check_script_size(descriptor: &Descriptor, script_size: usize) -> Result<
     }
     Ok(())
 }
-

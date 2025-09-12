@@ -1,4 +1,4 @@
-use std::{ops::Deref, str::FromStr, rc::Rc};
+use std::{ops::Deref, rc::Rc, str::FromStr};
 
 use bitcoin::{PublicKey, XOnlyPublicKey};
 use tinyminiscript::{
@@ -69,7 +69,7 @@ fn main() {
 
         let derived = key.inner.derive(22).unwrap();
 
-        key.inner = Rc::new(derived);
+        key.inner = derived;
     });
 }
 #[derive(Debug)]

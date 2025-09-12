@@ -183,11 +183,21 @@ impl core::fmt::Display for ExtendedKey {
         use alloc::string::ToString;
 
         if let Some((fingerprint, path)) = &self.origin {
-            write!(f, "[{fingerprint}{}{}]", if path.is_empty() { "" } else { "/" }, &path.to_string() )?;
+            write!(
+                f,
+                "[{fingerprint}{}{}]",
+                if path.is_empty() { "" } else { "/" },
+                &path.to_string()
+            )?;
         }
 
         write!(f, "{}", self.key)?;
-        write!(f, "{}{}", if self.path.is_empty() { "" } else { "/" }, &self.path.to_string())?;
+        write!(
+            f,
+            "{}{}",
+            if self.path.is_empty() { "" } else { "/" },
+            &self.path.to_string()
+        )?;
         write!(f, "{}", self.wildcard)?;
 
         Ok(())
@@ -318,24 +328,23 @@ pub fn parse_key<'a>(
     }
 
     // Get the key type based on the inner descriptor
-    let key = match descriptor {
-        Descriptor::Tr => Rc::new(bitcoin::XOnlyPublicKey::from_str(token.0).map_err(|_| {
-            ParseError::InvalidXOnlyKey {
-                key: token.0,
-                position: token.1,
-            }
-        })?) as Rc<dyn PublicKeyTrait>,
-        _ => {
-            Rc::new(bitcoin::PublicKey::from_str(token.0).map_err(|_| ParseError::InvalidKey {
-                key: token.0,
-                position: token.1,
-                inner: "Invalid bitcoin::PublicKey key",
-            })?)
-        }
-    };
-    Ok(KeyToken {
-        inner: key
-    })
+    let key =
+        match descriptor {
+            Descriptor::Tr => Rc::new(bitcoin::XOnlyPublicKey::from_str(token.0).map_err(|_| {
+                ParseError::InvalidXOnlyKey {
+                    key: token.0,
+                    position: token.1,
+                }
+            })?) as Rc<dyn PublicKeyTrait>,
+            _ => Rc::new(bitcoin::PublicKey::from_str(token.0).map_err(|_| {
+                ParseError::InvalidKey {
+                    key: token.0,
+                    position: token.1,
+                    inner: "Invalid bitcoin::PublicKey key",
+                }
+            })?),
+        };
+    Ok(KeyToken { inner: key })
 }
 
 #[cfg(test)]

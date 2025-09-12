@@ -1,4 +1,7 @@
-use crate::{descriptor::Descriptor, parser::{ASTVisitor, Fragment, IdentityType, ParserContext, Position, AST}};
+use crate::{
+    descriptor::Descriptor,
+    parser::{AST, ASTVisitor, Fragment, IdentityType, ParserContext, Position},
+};
 use core::cmp;
 
 /// The size of an encoding of a number in Script

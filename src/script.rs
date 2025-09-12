@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use bitcoin::{
-    key::ParsePublicKeyError, opcodes, script::Builder, Address, Network, PubkeyHash, ScriptBuf
+    Address, Network, PubkeyHash, ScriptBuf, key::ParsePublicKeyError, opcodes, script::Builder,
 };
 
 use crate::{
@@ -33,23 +33,30 @@ pub fn build_script<'a>(ctx: &ParserContext<'a>) -> Result<ScriptBuf, ScriptBuil
     Ok(builder.into_script())
 }
 
-pub fn build_address<'a>(ctx: &ParserContext<'a>, network: Network) -> Result<Address, ScriptBuilderError<'a>> {
+pub fn build_address<'a>(
+    ctx: &ParserContext<'a>,
+    network: Network,
+) -> Result<Address, ScriptBuilderError<'a>> {
     match ctx.descriptor() {
         Descriptor::Bare => Err(ScriptBuilderError::NoAddressForm),
         Descriptor::Pkh => {
             let mut key = None;
             ctx.iterate_keys(|k| key = Some(k.clone()));
             let key = key.expect("One key is always present");
-            let key = key.as_definite_key().ok_or_else(|| ScriptBuilderError::NonDefiniteKey(key.identifier()))?;
+            let key = key
+                .as_definite_key()
+                .ok_or_else(|| ScriptBuilderError::NonDefiniteKey(key.identifier()))?;
 
             let key = bitcoin::PublicKey::from_slice(&key.to_bytes()).expect("Valid key");
             Ok(Address::p2pkh(key, network))
-        },
+        }
         Descriptor::Wpkh => {
             let mut key = None;
             ctx.iterate_keys(|k| key = Some(k.clone()));
             let key = key.expect("One key is always present");
-            let key = key.as_definite_key().ok_or_else(|| ScriptBuilderError::NonDefiniteKey(key.identifier()))?;
+            let key = key
+                .as_definite_key()
+                .ok_or_else(|| ScriptBuilderError::NonDefiniteKey(key.identifier()))?;
 
             let key = bitcoin::CompressedPublicKey::from_slice(&key.to_bytes()).expect("Valid key");
 
@@ -58,11 +65,11 @@ pub fn build_address<'a>(ctx: &ParserContext<'a>, network: Network) -> Result<Ad
             } else {
                 Ok(Address::p2wpkh(&key, network))
             }
-        },
+        }
         Descriptor::Sh => {
             let script = build_script(ctx)?;
             Ok(Address::p2sh(script.as_script(), network).expect("Rules validated by parser"))
-        },
+        }
         Descriptor::Wsh => {
             let script = build_script(ctx)?;
             if ctx.is_wrapped() {
@@ -70,8 +77,8 @@ pub fn build_address<'a>(ctx: &ParserContext<'a>, network: Network) -> Result<Ad
             } else {
                 Ok(Address::p2wsh(script.as_script(), network))
             }
-        },
-        Descriptor::Tr => unimplemented!()
+        }
+        Descriptor::Tr => unimplemented!(),
     }
 }
 
@@ -126,11 +133,15 @@ impl<'a> ScriptBuilder<'a> {
                 Ok(builder)
             }
             Fragment::Older { n } => {
-                builder = builder.push_int(*n as i64).push_opcode(opcodes::all::OP_CSV);
+                builder = builder
+                    .push_int(*n as i64)
+                    .push_opcode(opcodes::all::OP_CSV);
                 Ok(builder)
             }
             Fragment::After { n } => {
-                builder = builder.push_int(*n as i64).push_opcode(opcodes::all::OP_CLTV);
+                builder = builder
+                    .push_int(*n as i64)
+                    .push_opcode(opcodes::all::OP_CLTV);
                 Ok(builder)
             }
             Fragment::Sha256 { h } => {
