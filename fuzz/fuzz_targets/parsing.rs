@@ -18,8 +18,8 @@ fuzz_target!(|data: &[u8]| {
 
     match (ms_descriptor, ts_descriptor) {
         (Ok(_), Ok(_)) => {}
-        (Err(e), Ok((ctx, _))) => {
-            println!("AST:{}", ctx.print_ast());
+        (Err(e), Ok(ctx)) => {
+            println!("AST:{}", ctx.serialize());
             panic!("Invalid descriptor accepted: '{}' (expected error {:?})", script, e);
         }
         (Ok(_), Err(e)) => {

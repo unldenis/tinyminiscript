@@ -75,11 +75,11 @@ pub enum Fragment<'a> {
     // Time fragments
     /// older(n)
     Older {
-        n: i64,
+        n: u32,
     },
     /// after(n)
     After {
-        n: i64,
+        n: u32,
     },
 
     // Hash Fragments
@@ -271,6 +271,10 @@ pub enum ParseError<'a> {
         position: Position,
     },
     InvalidChecksum,
+    InvalidAbsoluteLocktime {
+        locktime: u32,
+        position: Position,
+    },
 }
 
 #[derive(Clone)]
@@ -475,6 +479,21 @@ pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
     let root = parse_descriptor(&mut ctx)?;
     ctx.root = Some(root);
 
+
+    // should be no more tokens
+    let next_token = ctx.peek_token();
+    if next_token.is_some() {
+        let next_token = next_token.unwrap();
+        if next_token.0.starts_with("#") {
+            if checksum::verify_checksum(next_token.0).is_err() {
+                return Err(ParseError::InvalidChecksum);
+            }
+        } else {
+            return Err(ParseError::UnexpectedTrailingToken { found: next_token });
+        }
+    }
+
+
     Ok(ctx)
 }
 
@@ -518,20 +537,6 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseErr
     let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
     let inner = parse_internal(ctx, true)?;
     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
-
-    // should be no more tokens
-    let next_token = ctx.peek_token();
-    if next_token.is_some() {
-        let next_token = next_token.unwrap();
-
-        if next_token.0.starts_with("#") {
-            if checksum::verify_checksum(next_token.0).is_err() {
-                return Err(ParseError::InvalidChecksum);
-            }
-        } else {
-            return Err(ParseError::UnexpectedTrailingToken { found: next_token });
-        }
-    }
 
     Ok(AST {
         position: column,
@@ -684,18 +689,24 @@ fn parse_internal<'a>(
                         .ok_or(ParseError::UnexpectedEof { context: "older" })?;
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
-                    if n.starts_with("0") {
+                    // Check if the number starts with a digit 1-9
+                    if n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0') {
                         return Err(ParseError::UnexpectedToken {
                             expected: "Number must start with a digit 1-9",
                             found: (n, n_column),
                         });
                     }
 
-                    // check if n is i64
-                    let n = n.parse::<i64>().map_err(|_| ParseError::UnexpectedToken {
-                        expected: "i64",
+                    // check if n is u32
+                    let n = n.parse::<u32>().map_err(|_| ParseError::UnexpectedToken {
+                        expected: "u32",
                         found: (n, n_column),
                     })?;
+
+                    // check if the locktime is within the allowed range
+                    if let Err(locktime) = crate::limits::check_absolute_locktime(n) {
+                        return Err(ParseError::InvalidAbsoluteLocktime { locktime, position: n_column });
+                    }
 
                     Ok(AST {
                         position: column,
@@ -711,19 +722,25 @@ fn parse_internal<'a>(
                         .ok_or(ParseError::UnexpectedEof { context: "after" })?;
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
-                    // check if n is i64
+                    // check if n is u32
 
-                    if n.starts_with("0") {
+                    // Check if the number starts with a digit 1-9
+                    if n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0') {
                         return Err(ParseError::UnexpectedToken {
                             expected: "Number must start with a digit 1-9",
                             found: (n, n_column),
                         });
                     }
 
-                    let n = n.parse::<i64>().map_err(|_| ParseError::UnexpectedToken {
-                        expected: "i64",
+                    let n = n.parse::<u32>().map_err(|_| ParseError::UnexpectedToken {
+                        expected: "u32",
                         found: (n, n_column),
                     })?;
+
+                    // check if the locktime is within the allowed range
+                    if let Err(locktime) = crate::limits::check_absolute_locktime(n) {
+                        return Err(ParseError::InvalidAbsoluteLocktime { locktime, position: n_column });
+                    }
 
                     Ok(AST {
                         position: column,
