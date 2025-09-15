@@ -39,6 +39,7 @@ fn main() {
             "sh(older(2))".to_string(),
             "sh(u:after(3802199998))".to_string(),
             "sh(utvjtvntvdv:0)".to_string(),
+            "sh(uu:thresh(01,thresh(1,0)))".to_string(),
         ];
 
         for script in scripts {

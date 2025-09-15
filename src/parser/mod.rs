@@ -584,10 +584,15 @@ fn parse_sh_descriptor<'a>(
     })
 }
 
+fn is_invalid_number(n: &str) -> bool {
+    n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0')
+}   
+
 fn parse_internal<'a>(
     ctx: &mut ParserContext<'a>,
     first_fragment: bool,
 ) -> Result<AST<'a>, ParseError<'a>> {
+
     let (token, column) = ctx
         .peek_token()
         .ok_or(ParseError::UnexpectedEof { context: "parse" })?;
@@ -707,7 +712,7 @@ fn parse_internal<'a>(
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
                     // Check if the number starts with a digit 1-9
-                    if n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0') {
+                    if is_invalid_number(&n) {
                         return Err(ParseError::UnexpectedToken {
                             expected: "Number must start with a digit 1-9",
                             found: (n, n_column),
@@ -742,7 +747,7 @@ fn parse_internal<'a>(
                     // check if n is u32
 
                     // Check if the number starts with a digit 1-9
-                    if n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0') {
+                    if is_invalid_number(&n) {
                         return Err(ParseError::UnexpectedToken {
                             expected: "Number must start with a digit 1-9",
                             found: (n, n_column),
@@ -1013,12 +1018,20 @@ fn parse_internal<'a>(
                         .next_token()
                         .ok_or(ParseError::UnexpectedEof { context: "thresh" })?;
 
+                    // Check if the number starts with a digit 1-9
+                    if is_invalid_number(&k) {
+                        return Err(ParseError::UnexpectedToken {
+                            expected: "Number must start with a digit 1-9",
+                            found: (k, k_column),
+                        });
+                    }
+
                     let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
                         expected: "i32",
                         found: (k, k_column),
                     })?;
 
-                    // Pre-allocate with reasonable capacity to reduce reallocations
+                    // TODO: Pre-allocate with reasonable capacity to reduce reallocations
                     let mut xs = Vec::new();
                     while let Some((token, _column)) = ctx.peek_token() {
                         if token == ")" {

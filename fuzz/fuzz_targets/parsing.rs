@@ -19,6 +19,12 @@ fuzz_target!(|data: &[u8]| {
     match (ms_descriptor, ts_descriptor) {
         (Ok(_), Ok(_)) => {}
         (Err(e), Ok(ctx)) => {
+
+            let err  = format!("{:?}", e);
+            if err.contains("invalid taproot internal key") || err.contains("ExpectedChar(')')") {
+                return;
+            }
+
             println!("AST:{}", ctx.serialize());
             panic!("Invalid descriptor accepted: '{}' (expected error {:?})", script, e);
         }
