@@ -2,6 +2,7 @@ use crate::parser::{AST, ASTVisitor, Fragment, ParserContext, Position};
 
 /// Script descriptor
 #[derive(Clone, PartialEq)]
+#[repr(u8)]
 pub enum Descriptor {
     /// A raw scriptpubkey (including pay-to-pubkey) under Legacy context
     Bare,
@@ -27,10 +28,10 @@ impl Default for Descriptor {
     }
 }
 
-pub struct InvalidDescriptor<'a>(&'a str);
+pub struct InvalidDescriptor;
 
 impl<'a> TryFrom<&'a str> for Descriptor {
-    type Error = InvalidDescriptor<'a>;
+    type Error = InvalidDescriptor;
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         match value {
             "pkh" => Ok(Descriptor::Pkh),
@@ -38,7 +39,7 @@ impl<'a> TryFrom<&'a str> for Descriptor {
             "wpkh" => Ok(Descriptor::Wpkh),
             "wsh" => Ok(Descriptor::Wsh),
             "tr" => Ok(Descriptor::Tr),
-            _ => Err(InvalidDescriptor(value)),
+            _ => Err(InvalidDescriptor),
         }
     }
 }

@@ -1,9 +1,7 @@
 use std::{ops::Deref, rc::Rc, str::FromStr};
 
 use bitcoin::{PublicKey, XOnlyPublicKey};
-use tinyminiscript::{
-    MiniscriptError,
-};
+use tinyminiscript::MiniscriptError;
 fn main() {
     let x_only = "0202020202020202020202020202020202020202020202020202020202020202";
     let pub_key = "020202020202020202020202020202020202020202020202020202020202020202";

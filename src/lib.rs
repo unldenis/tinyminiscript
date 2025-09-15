@@ -31,25 +31,19 @@
 #![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
 
-#[cfg(feature = "debug")]
-/// AST printer
-mod ast_printer;
-mod checksum;
 /// Bitcoin descriptor parsing and validation
 pub mod descriptor;
 /// Limits for miniscript expressions
 pub mod limits;
 /// Miniscript parser and AST representation
 pub mod parser;
-
-mod macros;
+mod utils;
 
 #[cfg(feature = "satisfy")]
 /// Satisfactions and dis-satisfactions of miniscript expressions
 pub mod satisfy;
 /// Bitcoin script generation from parsed miniscript
 pub mod script;
-mod serialize;
 /// Type checking and correctness property validation
 pub mod type_checker;
 

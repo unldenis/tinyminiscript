@@ -16,7 +16,6 @@ pub struct KeyToken {
     inner: KeyTokenInner,
 }
 
-
 #[derive(Clone)]
 pub(crate) enum KeyTokenInner {
     PublicKey(bitcoin::PublicKey),
@@ -25,7 +24,6 @@ pub(crate) enum KeyTokenInner {
 }
 
 impl KeyToken {
-
     #[inline]
     pub(crate) fn new(inner: KeyTokenInner) -> Self {
         Self { inner }
@@ -39,7 +37,7 @@ impl KeyToken {
             KeyTokenInner::ExtendedKey(_) => true,
         }
     }
-    
+
     #[inline]
     pub fn identifier(&self) -> String {
         match &self.inner {
@@ -48,7 +46,7 @@ impl KeyToken {
             KeyTokenInner::ExtendedKey(ext) => ext.identifier(),
         }
     }
-    
+
     #[inline]
     pub fn as_definite_key(&self) -> Option<DefiniteKeyToken> {
         match &self.inner {
@@ -57,7 +55,7 @@ impl KeyToken {
             KeyTokenInner::ExtendedKey(_) => None,
         }
     }
-    
+
     #[inline]
     pub fn derive(&self, index: u32) -> Result<Self, String> {
         match &self.inner {
@@ -70,14 +68,14 @@ impl KeyToken {
             _ => Ok(self.clone()), // Non-extended keys don't need derivation
         }
     }
-    
+
     // Helper method to create from definite key
     pub fn from_definite_key(key: DefiniteKeyToken) -> Self {
         Self {
             inner: match key {
                 DefiniteKeyToken::PublicKey(pk) => KeyTokenInner::PublicKey(pk),
                 DefiniteKeyToken::XOnlyPublicKey(pk) => KeyTokenInner::XOnlyPublicKey(pk),
-            }
+            },
         }
     }
 }
@@ -105,7 +103,7 @@ impl DefiniteKeyToken {
             DefiniteKeyToken::XOnlyPublicKey(pk) => pk.serialize().to_vec(),
         }
     }
-    
+
     #[inline]
     pub fn push_to_script(&self, builder: Builder) -> Builder {
         match self {
@@ -113,7 +111,7 @@ impl DefiniteKeyToken {
             DefiniteKeyToken::XOnlyPublicKey(pk) => builder.push_x_only_key(pk),
         }
     }
-    
+
     #[inline]
     pub fn pubkey_hash(&self) -> PubkeyHash {
         match self {
@@ -173,7 +171,7 @@ impl ExtendedKey {
     pub fn identifier(&self) -> String {
         self.raw.clone()
     }
-    
+
     #[inline]
     pub fn derive(&self, index: u32) -> Result<DefiniteKeyToken, String> {
         let secp = secp256k1::Secp256k1::new();
@@ -192,9 +190,13 @@ impl ExtendedKey {
             .map_err(|e| alloc::format!("{:?}", e))?;
 
         if self.x_only {
-            Ok(DefiniteKeyToken::XOnlyPublicKey(bitcoin::XOnlyPublicKey::from(pubkey.public_key)))
+            Ok(DefiniteKeyToken::XOnlyPublicKey(
+                bitcoin::XOnlyPublicKey::from(pubkey.public_key),
+            ))
         } else {
-            Ok(DefiniteKeyToken::PublicKey(bitcoin::PublicKey::from(pubkey.public_key)))
+            Ok(DefiniteKeyToken::PublicKey(bitcoin::PublicKey::from(
+                pubkey.public_key,
+            )))
         }
     }
 }
@@ -360,17 +362,16 @@ pub fn parse_key<'a>(
             KeyTokenInner::XOnlyPublicKey(xonly_key)
         }
         _ => {
-            let pub_key = bitcoin::PublicKey::from_str(token.0).map_err(|_| {
-                ParseError::InvalidKey {
+            let pub_key =
+                bitcoin::PublicKey::from_str(token.0).map_err(|_| ParseError::InvalidKey {
                     key: token.0,
                     position: token.1,
                     inner: "Invalid bitcoin::PublicKey key",
-                }
-            })?;
+                })?;
             KeyTokenInner::PublicKey(pub_key)
         }
     };
-    
+
     Ok(KeyToken { inner: key })
 }
 

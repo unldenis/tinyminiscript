@@ -2,17 +2,13 @@ pub mod keys;
 
 use core::str::FromStr;
 
-use crate::checksum;
 use crate::parser::keys::{KeyToken, KeyTokenInner};
-use crate::{
-    Vec,
-    descriptor::Descriptor,
-};
-
+use crate::utils::checksum;
+use crate::{Vec, descriptor::Descriptor};
 
 // AST Visitor
 
-pub trait ASTVisitor<T> {
+pub(crate) trait ASTVisitor<T> {
     type Error;
 
     fn visit_ast(&mut self, ctx: &ParserContext, node: &AST) -> Result<T, Self::Error>;
@@ -329,7 +325,10 @@ impl<'a> ParserContext<'a> {
     }
 
     #[inline]
-    fn expect_token(&mut self, expected: &'static str) -> Result<(&'a str, Position), ParseError<'a>> {
+    fn expect_token(
+        &mut self,
+        expected: &'static str,
+    ) -> Result<(&'a str, Position), ParseError<'a>> {
         let (token, column) = self.next_token().ok_or(ParseError::UnexpectedEof {
             context: "expect_token",
         })?;
@@ -478,7 +477,7 @@ impl<'a> ParserContext<'a> {
     /// Serialize the AST to a string.
     #[inline]
     pub fn serialize(&self) -> alloc::string::String {
-        let mut serializer = crate::serialize::Serializer::new();
+        let mut serializer = crate::utils::serialize::Serializer::new();
         serializer.serialize(self)
     }
 }
