@@ -124,14 +124,10 @@ pub enum CorrectnessPropertiesVisitorError {
     },
 }
 
-impl<'a> ASTVisitor<'a, TypeInfo> for CorrectnessPropertiesVisitor {
+impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
     type Error = CorrectnessPropertiesVisitorError;
 
-    fn visit_ast(
-        &mut self,
-        ctx: &ParserContext<'a>,
-        node: &AST<'a>,
-    ) -> Result<TypeInfo, Self::Error> {
+    fn visit_ast(&mut self, ctx: &ParserContext, node: &AST) -> Result<TypeInfo, Self::Error> {
         match &node.fragment {
             Fragment::False => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,

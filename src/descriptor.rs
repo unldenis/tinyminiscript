@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use crate::parser::{AST, ASTVisitor, Fragment, ParserContext, Position};
 
 /// Script descriptor
@@ -58,16 +56,12 @@ impl core::fmt::Debug for Descriptor {
     }
 }
 
-pub struct DescriptorValidator<'a> {
-    phantom: PhantomData<&'a ()>,
-}
+pub struct DescriptorValidator {}
 
-impl<'a> DescriptorValidator<'a> {
+impl DescriptorValidator {
     #[inline]
-    pub fn new() -> Self {
-        Self {
-            phantom: PhantomData,
-        }
+    pub const fn new() -> Self {
+        Self {}
     }
 }
 
@@ -83,10 +77,10 @@ pub enum DescriptorVisitorError {
     },
 }
 
-impl<'a> ASTVisitor<'a, ()> for DescriptorValidator<'a> {
+impl ASTVisitor<()> for DescriptorValidator {
     type Error = DescriptorVisitorError;
 
-    fn visit_ast(&mut self, ctx: &ParserContext<'a>, node: &AST<'a>) -> Result<(), Self::Error> {
+    fn visit_ast(&mut self, ctx: &ParserContext, node: &AST) -> Result<(), Self::Error> {
         match &node.fragment {
             Fragment::Descriptor { descriptor, inner } => {
                 self.visit_ast_by_index(ctx, *inner)?;

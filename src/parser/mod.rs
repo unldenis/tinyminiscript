@@ -19,22 +19,22 @@ use bitcoin::{PubkeyHash, bip32, hashes::Hash, script::Builder};
 
 // AST Visitor
 
-pub trait ASTVisitor<'a, T> {
+pub trait ASTVisitor<T> {
     type Error;
 
-    fn visit_ast(&mut self, ctx: &ParserContext<'a>, node: &AST<'a>) -> Result<T, Self::Error>;
+    fn visit_ast(&mut self, ctx: &ParserContext, node: &AST) -> Result<T, Self::Error>;
 
     #[inline]
     fn visit_ast_by_index(
         &mut self,
-        ctx: &ParserContext<'a>,
+        ctx: &ParserContext,
         index: NodeIndex,
     ) -> Result<T, Self::Error> {
         self.visit_ast(ctx, &ctx.nodes[index as usize])
     }
 
     #[inline]
-    fn visit(&mut self, ctx: &ParserContext<'a>) -> Result<T, Self::Error> {
+    fn visit(&mut self, ctx: &ParserContext) -> Result<T, Self::Error> {
         self.visit_ast(ctx, &ctx.get_root())
     }
 }
@@ -46,16 +46,16 @@ pub type Position = usize;
 
 #[cfg_attr(feature = "debug", derive(Debug))]
 #[derive(Clone)]
-pub struct AST<'a> {
+pub struct AST {
     pub position: Position,
-    pub fragment: Fragment<'a>,
+    pub fragment: Fragment,
 }
 
 pub type NodeIndex = u16;
 
 #[cfg_attr(feature = "debug", derive(Debug))]
 #[derive(Clone)]
-pub enum Fragment<'a> {
+pub enum Fragment {
     // Basic Fragments
     /// 0
     False,
@@ -85,19 +85,19 @@ pub enum Fragment<'a> {
     // Hash Fragments
     /// sha256(h)
     Sha256 {
-        h: &'a [u8; 32],
+        h: [u8; 32],
     },
     /// hash256(h)
     Hash256 {
-        h: &'a [u8; 32],
+        h: [u8; 32],
     },
     /// ripemd160(h)
     Ripemd160 {
-        h: &'a [u8; 20],
+        h: [u8; 20],
     },
     /// hash160(h)
     Hash160 {
-        h: &'a [u8; 20],
+        h: [u8; 20],
     },
 
     // Logical Fragments
@@ -276,15 +276,23 @@ pub enum ParseError<'a> {
         position: Position,
     },
     NonAscii,
+    InvalidHex {
+        position: Position,
+    },
+    InvalidHexLength {
+        expected: usize,
+        found: usize,
+        position: Position,
+    },
 }
 
 #[derive(Clone)]
 pub struct ParserContext<'a> {
     tokens: Vec<(&'a str, usize)>,
     current_token: usize,
-    nodes: Vec<AST<'a>>,
+    nodes: Vec<AST>,
 
-    root: Option<AST<'a>>,
+    root: Option<AST>,
 
     pub(crate) top_level_descriptor: Option<Descriptor>,
     inner_descriptor: Descriptor,
@@ -364,19 +372,19 @@ impl<'a> ParserContext<'a> {
     }
 
     #[inline]
-    fn add_node(&mut self, ast: AST<'a>) -> NodeIndex {
+    fn add_node(&mut self, ast: AST) -> NodeIndex {
         let index = self.nodes.len() as NodeIndex;
         self.nodes.push(ast);
         index
     }
 
     #[inline]
-    pub fn get_node(&self, index: NodeIndex) -> &AST<'a> {
+    pub fn get_node(&self, index: NodeIndex) -> &AST {
         &self.nodes[index as usize]
     }
 
     #[inline]
-    pub fn get_root(&self) -> &AST<'a> {
+    pub fn get_root(&self) -> &AST {
         self.root.as_ref().expect("Root node not found")
     }
 
@@ -429,24 +437,22 @@ impl<'a> ParserContext<'a> {
     }
 
     pub fn iterate_keys(&self, mut callback: impl FnMut(&KeyToken)) {
-        self.nodes
-            .iter()
-            .for_each(|node| match &node.fragment {
-                Fragment::PkK { key } => callback(key),
-                Fragment::PkH { key } => callback(key),
-                Fragment::RawPkH { key } => callback(key),
-                Fragment::Multi { keys, .. } => {
-                    for key in keys.iter() {
-                        callback(key);
-                    }
+        self.nodes.iter().for_each(|node| match &node.fragment {
+            Fragment::PkK { key } => callback(key),
+            Fragment::PkH { key } => callback(key),
+            Fragment::RawPkH { key } => callback(key),
+            Fragment::Multi { keys, .. } => {
+                for key in keys.iter() {
+                    callback(key);
                 }
-                Fragment::MultiA { keys, .. } => {
-                    for key in keys.iter() {
-                        callback(key);
-                    }
-                }   
-                _ => (),
-            });
+            }
+            Fragment::MultiA { keys, .. } => {
+                for key in keys.iter() {
+                    callback(key);
+                }
+            }
+            _ => (),
+        });
     }
 
     /// Derive all the keys in the AST.
@@ -484,8 +490,7 @@ impl<'a> ParserContext<'a> {
 }
 
 #[inline]
-pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
-
+pub fn parse(input: &str) -> Result<ParserContext, ParseError> {
     // check if the input is ascii
     if !input.is_ascii() {
         return Err(ParseError::NonAscii);
@@ -495,7 +500,6 @@ pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
 
     let root = parse_descriptor(&mut ctx)?;
     ctx.root = Some(root);
-
 
     // should be no more tokens
     let next_token = ctx.peek_token();
@@ -510,11 +514,10 @@ pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
         }
     }
 
-
     Ok(ctx)
 }
 
-fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError<'a>> {
+fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>> {
     let (token, column) = ctx.peek_token().ok_or(ParseError::UnexpectedEof {
         context: "parse_descriptor",
     })?;
@@ -567,7 +570,7 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseErr
 fn parse_sh_descriptor<'a>(
     ctx: &mut ParserContext<'a>,
     sh: (&'a str, usize),
-) -> Result<AST<'a>, ParseError<'a>> {
+) -> Result<AST, ParseError<'a>> {
     let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
 
     // Parse the inner descriptor directly
@@ -586,13 +589,25 @@ fn parse_sh_descriptor<'a>(
 
 fn is_invalid_number(n: &str) -> bool {
     n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0')
-}   
+}
+
+fn parse_hex_to_bytes<'a, const N: usize>(
+    h: &'a str,
+    position: Position,
+) -> Result<[u8; N], ParseError<'a>> {
+    use bitcoin::hex::FromHex;
+    let bytes = <[u8; N]>::from_hex(h).map_err(|_| ParseError::UnexpectedToken {
+        expected: "hex string",
+        found: (h, position),
+    })?;
+
+    Ok(bytes)
+}
 
 fn parse_internal<'a>(
     ctx: &mut ParserContext<'a>,
     first_fragment: bool,
-) -> Result<AST<'a>, ParseError<'a>> {
-
+) -> Result<AST, ParseError<'a>> {
     let (token, column) = ctx
         .peek_token()
         .ok_or(ParseError::UnexpectedEof { context: "parse" })?;
@@ -727,7 +742,10 @@ fn parse_internal<'a>(
 
                     // check if the locktime is within the allowed range
                     if let Err(locktime) = crate::limits::check_absolute_locktime(n) {
-                        return Err(ParseError::InvalidAbsoluteLocktime { locktime, position: n_column });
+                        return Err(ParseError::InvalidAbsoluteLocktime {
+                            locktime,
+                            position: n_column,
+                        });
                     }
 
                     Ok(AST {
@@ -761,7 +779,10 @@ fn parse_internal<'a>(
 
                     // check if the locktime is within the allowed range
                     if let Err(locktime) = crate::limits::check_absolute_locktime(n) {
-                        return Err(ParseError::InvalidAbsoluteLocktime { locktime, position: n_column });
+                        return Err(ParseError::InvalidAbsoluteLocktime {
+                            locktime,
+                            position: n_column,
+                        });
                     }
 
                     Ok(AST {
@@ -778,13 +799,7 @@ fn parse_internal<'a>(
                         .ok_or(ParseError::UnexpectedEof { context: "sha256" })?;
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
-                    let h: &'a [u8; 32] =
-                        h.as_bytes()
-                            .try_into()
-                            .map_err(|_| ParseError::UnexpectedToken {
-                                expected: "[u8; 32]",
-                                found: (h, _h_column),
-                            })?;
+                    let h: [u8; 32] = parse_hex_to_bytes(h, _h_column)?;
 
                     Ok(AST {
                         position: column,
@@ -800,13 +815,7 @@ fn parse_internal<'a>(
                         .ok_or(ParseError::UnexpectedEof { context: "hash256" })?;
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
-                    let h: &'a [u8; 32] =
-                        h.as_bytes()
-                            .try_into()
-                            .map_err(|_| ParseError::UnexpectedToken {
-                                expected: "[u8; 32]",
-                                found: (h, _h_column),
-                            })?;
+                    let h: [u8; 32] = parse_hex_to_bytes(h, _h_column)?;
 
                     Ok(AST {
                         position: column,
@@ -822,13 +831,7 @@ fn parse_internal<'a>(
                     })?;
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
-                    let h: &'a [u8; 20] =
-                        h.as_bytes()
-                            .try_into()
-                            .map_err(|_| ParseError::UnexpectedToken {
-                                expected: "[u8; 20]",
-                                found: (h, _h_column),
-                            })?;
+                    let h: [u8; 20] = parse_hex_to_bytes(h, _h_column)?;
 
                     Ok(AST {
                         position: column,
@@ -844,13 +847,7 @@ fn parse_internal<'a>(
                         .ok_or(ParseError::UnexpectedEof { context: "hash160" })?;
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
 
-                    let h: &'a [u8; 20] =
-                        h.as_bytes()
-                            .try_into()
-                            .map_err(|_| ParseError::UnexpectedToken {
-                                expected: "[u8; 20]",
-                                found: (h, _h_column),
-                            })?;
+                    let h: [u8; 20] = parse_hex_to_bytes(h, _h_column)?;
 
                     Ok(AST {
                         position: column,
@@ -1252,7 +1249,7 @@ fn parse_internal<'a>(
     }
 }
 
-fn parse_bool<'a>(ctx: &mut ParserContext<'a>) -> Result<AST<'a>, ParseError<'a>> {
+fn parse_bool<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>> {
     let (token, column) = ctx.peek_token().ok_or(ParseError::UnexpectedEof {
         context: "parse_bool",
     })?;

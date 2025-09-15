@@ -98,7 +98,7 @@ impl<'a> ScriptBuilder<'a> {
     fn build_fragment(
         &mut self,
         ctx: &ParserContext<'a>,
-        ast: &AST<'a>,
+        ast: &AST,
         mut builder: Builder,
     ) -> Result<Builder, ScriptBuilderError<'a>> {
         match &ast.fragment {
