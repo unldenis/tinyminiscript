@@ -44,6 +44,7 @@ pub mod parser;
 
 mod macros;
 
+#[cfg(feature = "satisfy")]
 /// Satisfactions and dis-satisfactions of miniscript expressions
 pub mod satisfy;
 /// Bitcoin script generation from parsed miniscript
@@ -59,7 +60,6 @@ pub(crate) type Vec<T> = alloc::vec::Vec<T>;
 
 // ---
 
-use bitcoin::ScriptBuf;
 use parser::ASTVisitor;
 
 use parser::ParserContext;

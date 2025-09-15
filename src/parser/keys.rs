@@ -1,4 +1,3 @@
-use core::ops::Deref;
 use core::str::FromStr;
 
 use alloc::{string::String, vec::Vec};
@@ -6,119 +5,144 @@ use bitcoin::bip32;
 use bitcoin::hashes::Hash;
 use bitcoin::{PubkeyHash, script::Builder, secp256k1};
 
-use alloc::boxed::Box;
-use alloc::rc::Rc;
-
 use crate::descriptor::Descriptor;
 use crate::parser::{ParseError, Position};
 
+use alloc::string::ToString;
+
 #[derive(Clone)]
-/// A token for a public key.
+/// A token for a public key - enum-based approach eliminating trait objects
 pub struct KeyToken {
-    pub inner: Rc<dyn PublicKeyTrait>,
+    inner: KeyTokenInner,
+}
+
+
+#[derive(Clone)]
+pub(crate) enum KeyTokenInner {
+    PublicKey(bitcoin::PublicKey),
+    XOnlyPublicKey(bitcoin::XOnlyPublicKey),
+    ExtendedKey(ExtendedKey),
 }
 
 impl KeyToken {
-    pub fn as_extended_key(&self) -> Option<Rc<ExtendedKey>> {
-        let rc = Rc::clone(&self.inner) as Rc<dyn core::any::Any>;
-        rc.downcast::<ExtendedKey>().ok()
+
+    #[inline]
+    pub(crate) fn new(inner: KeyTokenInner) -> Self {
+        Self { inner }
+    }
+
+    #[inline]
+    pub fn is_compressed(&self) -> bool {
+        match &self.inner {
+            KeyTokenInner::PublicKey(pk) => pk.compressed,
+            KeyTokenInner::XOnlyPublicKey(_) => true,
+            KeyTokenInner::ExtendedKey(_) => true,
+        }
+    }
+    
+    #[inline]
+    pub fn identifier(&self) -> String {
+        match &self.inner {
+            KeyTokenInner::PublicKey(pk) => pk.to_string(),
+            KeyTokenInner::XOnlyPublicKey(pk) => pk.to_string(),
+            KeyTokenInner::ExtendedKey(ext) => ext.identifier(),
+        }
+    }
+    
+    #[inline]
+    pub fn as_definite_key(&self) -> Option<DefiniteKeyToken> {
+        match &self.inner {
+            KeyTokenInner::PublicKey(pk) => Some(DefiniteKeyToken::PublicKey(*pk)),
+            KeyTokenInner::XOnlyPublicKey(pk) => Some(DefiniteKeyToken::XOnlyPublicKey(*pk)),
+            KeyTokenInner::ExtendedKey(_) => None,
+        }
+    }
+    
+    #[inline]
+    pub fn derive(&self, index: u32) -> Result<Self, String> {
+        match &self.inner {
+            KeyTokenInner::ExtendedKey(ext) => {
+                let derived = ext.derive(index)?;
+                Ok(KeyToken {
+                    inner: KeyTokenInner::from_definite_key(derived),
+                })
+            }
+            _ => Ok(self.clone()), // Non-extended keys don't need derivation
+        }
+    }
+    
+    // Helper method to create from definite key
+    pub fn from_definite_key(key: DefiniteKeyToken) -> Self {
+        Self {
+            inner: match key {
+                DefiniteKeyToken::PublicKey(pk) => KeyTokenInner::PublicKey(pk),
+                DefiniteKeyToken::XOnlyPublicKey(pk) => KeyTokenInner::XOnlyPublicKey(pk),
+            }
+        }
+    }
+}
+
+impl KeyTokenInner {
+    fn from_definite_key(key: DefiniteKeyToken) -> Self {
+        match key {
+            DefiniteKeyToken::PublicKey(pk) => Self::PublicKey(pk),
+            DefiniteKeyToken::XOnlyPublicKey(pk) => Self::XOnlyPublicKey(pk),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum DefiniteKeyToken {
+    PublicKey(bitcoin::PublicKey),
+    XOnlyPublicKey(bitcoin::XOnlyPublicKey),
+}
+
+impl DefiniteKeyToken {
+    #[inline]
+    pub fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            DefiniteKeyToken::PublicKey(pk) => pk.to_bytes().to_vec(),
+            DefiniteKeyToken::XOnlyPublicKey(pk) => pk.serialize().to_vec(),
+        }
+    }
+    
+    #[inline]
+    pub fn push_to_script(&self, builder: Builder) -> Builder {
+        match self {
+            DefiniteKeyToken::PublicKey(pk) => builder.push_key(pk),
+            DefiniteKeyToken::XOnlyPublicKey(pk) => builder.push_x_only_key(pk),
+        }
+    }
+    
+    #[inline]
+    pub fn pubkey_hash(&self) -> PubkeyHash {
+        match self {
+            DefiniteKeyToken::PublicKey(pk) => pk.pubkey_hash(),
+            DefiniteKeyToken::XOnlyPublicKey(pk) => PubkeyHash::hash(&pk.serialize()),
+        }
     }
 }
 
 #[cfg(feature = "debug")]
 impl core::fmt::Debug for KeyToken {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.inner.identifier())
-    }
-}
-
-impl Deref for KeyToken {
-    type Target = dyn PublicKeyTrait;
-
-    fn deref(&self) -> &Self::Target {
-        self.inner.deref()
+        write!(f, "{}", self.identifier())
     }
 }
 
 #[cfg(feature = "debug")]
-pub trait PublicKeyTrait: core::fmt::Debug + core::any::Any {
-    fn is_compressed(&self) -> bool;
-    fn identifier(&self) -> String;
-    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait>;
-    fn derive(&self, index: u32) -> Result<Rc<dyn DefiniteKeyTrait>, String>;
-}
-#[cfg(not(feature = "debug"))]
-pub trait PublicKeyTrait: core::any::Any {
-    fn is_compressed(&self) -> bool;
-    fn identifier(&self) -> String;
-    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait>;
-    fn derive(&self, index: u32) -> Result<Rc<dyn DefiniteKeyTrait>, String>;
-}
-
-pub trait DefiniteKeyTrait: PublicKeyTrait {
-    fn to_bytes(&self) -> Vec<u8>;
-    fn push_to_script(&self, builder: Builder) -> Builder;
-    fn pubkey_hash(&self) -> PubkeyHash;
-}
-
-impl PublicKeyTrait for bitcoin::PublicKey {
-    fn is_compressed(&self) -> bool {
-        self.compressed
-    }
-    fn identifier(&self) -> String {
-        use alloc::string::ToString;
-        self.to_string()
-    }
-    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait> {
-        Some(self)
-    }
-    fn derive(&self, _: u32) -> Result<Rc<dyn DefiniteKeyTrait>, String> {
-        Ok(Rc::new(self.clone()))
-    }
-}
-
-impl DefiniteKeyTrait for bitcoin::PublicKey {
-    fn to_bytes(&self) -> Vec<u8> {
-        bitcoin::PublicKey::to_bytes(*self)
-    }
-    fn push_to_script(&self, builder: Builder) -> Builder {
-        builder.push_key(self)
-    }
-    fn pubkey_hash(&self) -> PubkeyHash {
-        self.pubkey_hash()
-    }
-}
-
-impl PublicKeyTrait for bitcoin::XOnlyPublicKey {
-    fn is_compressed(&self) -> bool {
-        true
-    }
-    fn identifier(&self) -> String {
-        use alloc::string::ToString;
-        self.to_string()
-    }
-    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait> {
-        Some(self)
-    }
-    fn derive(&self, _: u32) -> Result<Rc<dyn DefiniteKeyTrait>, String> {
-        Ok(Rc::new(self.clone()))
-    }
-}
-
-impl DefiniteKeyTrait for bitcoin::XOnlyPublicKey {
-    fn to_bytes(&self) -> Vec<u8> {
-        self.serialize().to_vec()
-    }
-    fn push_to_script(&self, builder: Builder) -> Builder {
-        builder.push_x_only_key(self)
-    }
-    fn pubkey_hash(&self) -> PubkeyHash {
-        PubkeyHash::hash(&self.serialize().to_vec())
+impl core::fmt::Debug for DefiniteKeyToken {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DefiniteKeyToken::PublicKey(pk) => write!(f, "PublicKey({})", pk),
+            DefiniteKeyToken::XOnlyPublicKey(pk) => write!(f, "XOnlyPublicKey({})", pk),
+        }
     }
 }
 
 #[cfg_attr(feature = "debug", derive(Debug))]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Wildcard {
     None,
     Normal,
@@ -144,17 +168,14 @@ pub struct ExtendedKey {
     pub x_only: bool,
 }
 
-impl PublicKeyTrait for ExtendedKey {
-    fn is_compressed(&self) -> bool {
-        true
-    }
-    fn identifier(&self) -> String {
+impl ExtendedKey {
+    #[inline]
+    pub fn identifier(&self) -> String {
         self.raw.clone()
     }
-    fn as_definite_key(&self) -> Option<&dyn DefiniteKeyTrait> {
-        None
-    }
-    fn derive(&self, index: u32) -> Result<Rc<dyn DefiniteKeyTrait>, String> {
+    
+    #[inline]
+    pub fn derive(&self, index: u32) -> Result<DefiniteKeyToken, String> {
         let secp = secp256k1::Secp256k1::new();
 
         let mut path = self.path.clone();
@@ -171,9 +192,9 @@ impl PublicKeyTrait for ExtendedKey {
             .map_err(|e| alloc::format!("{:?}", e))?;
 
         if self.x_only {
-            Ok(Rc::new(bitcoin::XOnlyPublicKey::from(pubkey.public_key)))
+            Ok(DefiniteKeyToken::XOnlyPublicKey(bitcoin::XOnlyPublicKey::from(pubkey.public_key)))
         } else {
-            Ok(Rc::new(bitcoin::PublicKey::from(pubkey.public_key)))
+            Ok(DefiniteKeyToken::PublicKey(bitcoin::PublicKey::from(pubkey.public_key)))
         }
     }
 }
@@ -323,27 +344,33 @@ pub fn parse_key<'a>(
             x_only,
         };
         return Ok(KeyToken {
-            inner: Rc::new(key),
+            inner: KeyTokenInner::ExtendedKey(key),
         });
     }
 
     // Get the key type based on the inner descriptor
-    let key =
-        match descriptor {
-            Descriptor::Tr => Rc::new(bitcoin::XOnlyPublicKey::from_str(token.0).map_err(|_| {
+    let key = match descriptor {
+        Descriptor::Tr => {
+            let xonly_key = bitcoin::XOnlyPublicKey::from_str(token.0).map_err(|_| {
                 ParseError::InvalidXOnlyKey {
                     key: token.0,
                     position: token.1,
                 }
-            })?) as Rc<dyn PublicKeyTrait>,
-            _ => Rc::new(bitcoin::PublicKey::from_str(token.0).map_err(|_| {
+            })?;
+            KeyTokenInner::XOnlyPublicKey(xonly_key)
+        }
+        _ => {
+            let pub_key = bitcoin::PublicKey::from_str(token.0).map_err(|_| {
                 ParseError::InvalidKey {
                     key: token.0,
                     position: token.1,
                     inner: "Invalid bitcoin::PublicKey key",
                 }
-            })?),
-        };
+            })?;
+            KeyTokenInner::PublicKey(pub_key)
+        }
+    };
+    
     Ok(KeyToken { inner: key })
 }
 
@@ -356,7 +383,7 @@ mod test {
         let key = "[aabbccdd/10'/123]tpubDAenfwNu5GyCJWv8oqRAckdKMSUoZjgVF5p8WvQwHQeXjDhAHmGrPa4a4y2Fn7HF2nfCLefJanHV3ny1UY25MRVogizB2zRUdAo7Tr9XAjm/10/*";
         let key = parse_key((key, 0), &Descriptor::Wpkh).unwrap();
         dbg!(&key);
-        let derived = key.inner.derive(22).unwrap();
+        let derived = key.derive(22).unwrap();
         dbg!(&derived);
     }
 }

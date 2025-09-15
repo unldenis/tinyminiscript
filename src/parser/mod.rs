@@ -1,21 +1,14 @@
 pub mod keys;
 
-use alloc::boxed::Box;
-use alloc::string::{String, ToString};
-use bitcoin::psbt::raw::Key;
-use bitcoin::secp256k1;
 use core::str::FromStr;
 
 use crate::checksum;
-use crate::parser::keys::KeyToken;
+use crate::parser::keys::{KeyToken, KeyTokenInner};
 use crate::{
     Vec,
     descriptor::Descriptor,
-    satisfy::{self, Satisfactions, Satisfier, SatisfyError},
 };
-use keys::PublicKeyTrait;
 
-use bitcoin::{PubkeyHash, bip32, hashes::Hash, script::Builder};
 
 // AST Visitor
 
@@ -40,7 +33,7 @@ pub trait ASTVisitor<T> {
 }
 
 // Position
-pub type Position = usize;
+pub type Position = u16;
 
 // AST
 
@@ -177,6 +170,7 @@ pub enum Fragment {
 }
 
 #[derive(PartialEq, Clone)]
+#[repr(u8)]
 pub enum IdentityType {
     A,
     S,
@@ -204,13 +198,13 @@ impl core::fmt::Debug for IdentityType {
 
 // Optimized tokenization using string slices instead of owned strings
 #[inline]
-fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec<(&'a str, usize)>
+fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec<(&'a str, Position)>
 where
     F: Fn(char) -> bool,
 {
     // Pre-allocate with estimated capacity to reduce reallocations
-    // let estimated_tokens = s.len() / 3 + 1; // Rough estimate
-    let mut result = Vec::new();
+    let estimated_tokens = s.len() / 3 + 1; // Rough estimate
+    let mut result: Vec<(&'a str, Position)> = Vec::with_capacity(estimated_tokens);
     let mut char_indices = s.char_indices().peekable();
     let mut start = 0;
     let mut column = 1;
@@ -221,7 +215,7 @@ where
                 // Push the slice before the separator
                 let part = &s[start..i];
                 result.push((part, column));
-                column += part.chars().count();
+                column += part.chars().count() as u16;
             }
 
             // Push the separator itself
@@ -288,7 +282,7 @@ pub enum ParseError<'a> {
 
 #[derive(Clone)]
 pub struct ParserContext<'a> {
-    tokens: Vec<(&'a str, usize)>,
+    tokens: Vec<(&'a str, Position)>,
     current_token: usize,
     nodes: Vec<AST>,
 
@@ -315,7 +309,7 @@ impl<'a> ParserContext<'a> {
 
     // return the next token
     #[inline]
-    fn next_token(&mut self) -> Option<(&'a str, usize)> {
+    fn next_token(&mut self) -> Option<(&'a str, Position)> {
         if self.current_token < self.tokens.len() {
             let token = self.tokens[self.current_token];
             self.current_token += 1;
@@ -326,7 +320,7 @@ impl<'a> ParserContext<'a> {
     }
 
     #[inline]
-    fn peek_token(&self) -> Option<(&'a str, usize)> {
+    fn peek_token(&self) -> Option<(&'a str, Position)> {
         if self.current_token < self.tokens.len() {
             Some(self.tokens[self.current_token])
         } else {
@@ -335,7 +329,7 @@ impl<'a> ParserContext<'a> {
     }
 
     #[inline]
-    fn expect_token(&mut self, expected: &'static str) -> Result<(&'a str, usize), ParseError<'a>> {
+    fn expect_token(&mut self, expected: &'static str) -> Result<(&'a str, Position), ParseError<'a>> {
         let (token, column) = self.next_token().ok_or(ParseError::UnexpectedEof {
             context: "expect_token",
         })?;
@@ -349,7 +343,7 @@ impl<'a> ParserContext<'a> {
     }
 
     #[inline]
-    fn peek_next_token(&self) -> Option<(&'a str, usize)> {
+    fn peek_next_token(&self) -> Option<(&'a str, Position)> {
         if self.current_token + 1 < self.tokens.len() {
             Some(self.tokens[self.current_token + 1])
         } else {
@@ -456,23 +450,23 @@ impl<'a> ParserContext<'a> {
     }
 
     /// Derive all the keys in the AST.
-    pub fn derive(&mut self, index: u32) -> Result<(), String> {
+    pub fn derive(&mut self, index: u32) -> Result<(), alloc::string::String> {
         for node in &mut self.nodes {
             match &mut node.fragment {
                 Fragment::PkK { key } | Fragment::PkH { key } | Fragment::RawPkH { key } => {
                     let derived = key.derive(index)?;
-                    key.inner = derived;
+                    *key = derived;
                 }
                 Fragment::Multi { keys, k } => {
                     for key in keys.iter_mut() {
                         let derived = key.derive(index)?;
-                        key.inner = derived;
+                        *key = derived;
                     }
                 }
                 Fragment::MultiA { keys, k } => {
                     for key in keys.iter_mut() {
                         let derived = key.derive(index)?;
-                        key.inner = derived;
+                        *key = derived;
                     }
                 }
                 _ => (),
@@ -483,14 +477,14 @@ impl<'a> ParserContext<'a> {
 
     /// Serialize the AST to a string.
     #[inline]
-    pub fn serialize(&self) -> String {
+    pub fn serialize(&self) -> alloc::string::String {
         let mut serializer = crate::serialize::Serializer::new();
         serializer.serialize(self)
     }
 }
 
 #[inline]
-pub fn parse(input: &str) -> Result<ParserContext, ParseError> {
+pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
     // check if the input is ascii
     if !input.is_ascii() {
         return Err(ParseError::NonAscii);
@@ -569,7 +563,7 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'
 
 fn parse_sh_descriptor<'a>(
     ctx: &mut ParserContext<'a>,
-    sh: (&'a str, usize),
+    sh: (&'a str, Position),
 ) -> Result<AST, ParseError<'a>> {
     let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
 
@@ -1028,8 +1022,8 @@ fn parse_internal<'a>(
                         found: (k, k_column),
                     })?;
 
-                    // TODO: Pre-allocate with reasonable capacity to reduce reallocations
-                    let mut xs = Vec::new();
+                    let estimated_tokens = k as usize;
+                    let mut xs = Vec::with_capacity(estimated_tokens);
                     while let Some((token, _column)) = ctx.peek_token() {
                         if token == ")" {
                             break;
@@ -1078,9 +1072,7 @@ fn parse_internal<'a>(
                                 inner: "Invalid bitcoin::PublicKey key",
                             }
                         })?;
-                        keys.push(KeyToken {
-                            inner: alloc::rc::Rc::new(key),
-                        });
+                        keys.push(KeyToken::new(KeyTokenInner::PublicKey(key)));
                     }
 
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
@@ -1119,9 +1111,7 @@ fn parse_internal<'a>(
                                 position: key_column,
                             }
                         })?;
-                        keys.push(KeyToken {
-                            inner: alloc::rc::Rc::new(key),
-                        });
+                        keys.push(KeyToken::new(KeyTokenInner::XOnlyPublicKey(key)));
                     }
 
                     let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;

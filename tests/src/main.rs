@@ -3,7 +3,6 @@ use std::{ops::Deref, rc::Rc, str::FromStr};
 use bitcoin::{PublicKey, XOnlyPublicKey};
 use tinyminiscript::{
     MiniscriptError,
-    satisfy::{Satisfier, SatisfyError},
 };
 fn main() {
     let x_only = "0202020202020202020202020202020202020202020202020202020202020202";
@@ -68,11 +67,11 @@ fn main() {
     println!("serialized after : {}", ctx.serialize());
 
     ctx.iterate_keys_mut(|key| {
-        println!("before : {:?}", key.inner);
+        println!("before : {:?}", key.identifier());
 
-        let derived = key.inner.derive(22).unwrap();
+        let derived = key.derive(22).unwrap();
 
-        key.inner = derived;
+        *key = derived;
     });
 
     // read file content and parse it
@@ -87,7 +86,7 @@ fn main() {
 #[derive(Debug)]
 enum Error<'a> {
     Miniscript(MiniscriptError<'a>),
-    Satisfaction(SatisfyError),
+    // Satisfaction(SatisfyError),
 }
 
 fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
