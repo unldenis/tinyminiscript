@@ -1,7 +1,7 @@
 use tinyminiscript::MiniscriptError;
 
 fn main() {
-    println!("🚀 Starting Miniscript Test Suite");
+    println!("\n🚀 Starting Miniscript Test Suite");
     println!("=====================================");
     
     // Run all test categories
@@ -64,6 +64,7 @@ fn test_basic_scripts() {
         "sh(uu:thresh(01,thresh(1,0)))",
         "sh(hash160(vvvvvvvvvvvvvvvvvvvv))",
         "sh(ripemd160(ccccccccccccccccccCCCCCCcccccccccccccc9c))",
+        "tr(DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD,l:0)",
     ];
 
     for (i, script) in scripts.iter().enumerate() {

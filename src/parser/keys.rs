@@ -353,6 +353,15 @@ pub fn parse_key<'a>(
     // Get the key type based on the inner descriptor
     let key = match descriptor {
         Descriptor::Tr => {
+            // Fix: https://github.com/unldenis/tinyminiscript/issues/40 
+            // pubkey string should be 66 or 130 digits long, got: 64
+            if token.0.len() != 66 && token.0.len() != 130 {
+                return Err(ParseError::InvalidXOnlyKey {
+                    key: token.0,
+                    position: token.1,
+                });
+            }
+
             let xonly_key = bitcoin::XOnlyPublicKey::from_str(token.0).map_err(|_| {
                 ParseError::InvalidXOnlyKey {
                     key: token.0,
