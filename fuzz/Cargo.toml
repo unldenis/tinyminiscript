@@ -20,3 +20,10 @@ path = "fuzz_targets/parsing.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "script"
+path = "fuzz_targets/script.rs"
+test = false
+doc = false
+bench = false

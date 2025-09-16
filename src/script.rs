@@ -25,7 +25,9 @@ pub enum ScriptBuilderError<'a> {
     NoAddressForm,
 }
 
-pub fn build_script<'a>(ctx: &ParserContext<'a>) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
+pub(crate) fn build_script<'a>(
+    ctx: &ParserContext<'a>,
+) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
     let mut script_builder = ScriptBuilder::new();
 
     let mut builder = Builder::new();
@@ -33,7 +35,7 @@ pub fn build_script<'a>(ctx: &ParserContext<'a>) -> Result<ScriptBuf, ScriptBuil
     Ok(builder.into_script())
 }
 
-pub fn build_address<'a>(
+pub(crate) fn build_address<'a>(
     ctx: &ParserContext<'a>,
     network: Network,
 ) -> Result<Address, ScriptBuilderError<'a>> {

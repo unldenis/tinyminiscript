@@ -2,7 +2,10 @@ pub mod keys;
 
 use core::str::FromStr;
 
+use bitcoin::{Address, Network, ScriptBuf};
+
 use crate::parser::keys::{KeyToken, KeyTokenInner};
+use crate::script::ScriptBuilderError;
 use crate::utils::checksum;
 use crate::{Vec, descriptor::Descriptor};
 
@@ -479,6 +482,14 @@ impl<'a> ParserContext<'a> {
     pub fn serialize(&self) -> alloc::string::String {
         let mut serializer = crate::utils::serialize::Serializer::new();
         serializer.serialize(self)
+    }
+
+    pub fn build_script(&self) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
+        crate::script::build_script(self)
+    }
+
+    pub fn build_address(&self, network: Network) -> Result<Address, ScriptBuilderError<'a>> {
+        crate::script::build_address(self, network)
     }
 }
 
