@@ -336,7 +336,8 @@ impl<'a> ScriptBuilder<'a> {
                     .push_opcode(opcodes::all::OP_DUP)
                     .push_opcode(opcodes::all::OP_HASH160)
                     .push_slice(&hash)
-                    .push_opcode(opcodes::all::OP_EQUALVERIFY);
+                    .push_opcode(opcodes::all::OP_EQUALVERIFY)
+                    .push_opcode(opcodes::all::OP_CHECKSIG);
                 Ok(builder)
             }
         }

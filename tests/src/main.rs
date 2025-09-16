@@ -91,6 +91,7 @@ fn main() {
     let scripts = vec![
         "sh(n:1)",
         "sh(ntvtvnnnnnntvnnnjnnndvn:0)",
+        "pkh(033333333333333333333333333333333333333333333333333333333333333333)"
     ];
 
     for script in scripts {
