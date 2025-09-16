@@ -304,7 +304,7 @@ impl<'a> ScriptBuilder<'a> {
                 }
                 crate::parser::IdentityType::V => {
                     let builder = self.build_fragment(ctx, ctx.get_node(*x), builder)?;
-                    let builder = builder.push_opcode(opcodes::all::OP_VERIFY);
+                    let builder = builder.push_verify();
                     Ok(builder)
                 }
                 crate::parser::IdentityType::J => {

@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use tinyminiscript::MiniscriptError;
 
 fn main() {
@@ -120,11 +122,15 @@ fn test_script_building() {
     println!("\n\n🔨 Testing Script Building");
     println!("-------------------------");
 
+    let pub_key = "020202020202020202020202020202020202020202020202020202020202020202";
+    let equalverify = format!("wsh(or_d(pk({}),and_v(v:pk({}),older(52560))))", pub_key, pub_key);
     let scripts = vec![
         "sh(n:1)",
         "sh(ntvtvnnnnnntvnnnjnnndvn:0)",
         "pkh(033333333333333333333333333333333333333333333333333333333333333333)",
-        "wsh(thresh(1,0))"
+        "wsh(thresh(1,0))",
+        "wsh(tv:thresh(1,u:0))",
+        equalverify.as_str()
     ];
 
     for (i, script) in scripts.iter().enumerate() {
