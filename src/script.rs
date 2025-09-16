@@ -343,6 +343,14 @@ impl<'a> ScriptBuilder<'a> {
                     .push_opcode(opcodes::all::OP_CHECKSIG);
                 Ok(builder)
             }
+            Fragment::RawTr { key, inner } => {
+                if let Some(inner) = inner {
+                    let builder = self.build_fragment(ctx, ctx.get_node(*inner), builder)?;
+                    Ok(builder)
+                } else {
+                    panic!("Taproot script without inner is not supported");
+                }
+            },
         }
     }
 }

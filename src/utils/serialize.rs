@@ -145,6 +145,14 @@ impl Serializer {
             Fragment::RawPkH { key } => {
                 self.output.push_str(&format!("{:?}", key));
             }
+            Fragment::RawTr { key, inner } => {
+                self.output.push_str(&format!("{:?}", key));
+                if let Some(inner) = inner {
+                    self.output.push_str(",");
+                    self.serialize_node(ctx, ctx.get_node(*inner));
+
+                }
+            }
         }
     }
 }

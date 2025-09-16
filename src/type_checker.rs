@@ -1013,11 +1013,26 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
             }
             Fragment::RawPkH { key } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
-                PROPERTY_N | PROPERTY_D | PROPERTY_U,
-                24,
+                0,
+                0,
                 false,
                 0,
             )),
+            Fragment::RawTr { key, inner } => {
+
+                if let Some(inner) = inner {
+                    let inner_type = self.visit_ast_by_index(ctx, *inner)?;
+                    Ok(inner_type)
+                } else {
+                    Ok(TypeInfo::new(
+                        MINISCRIPT_TYPE_B,
+                        0,
+                        0,
+                        false,
+                        0,
+                    ))
+                }
+            },
         }
     }
 }

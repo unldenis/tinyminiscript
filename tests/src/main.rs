@@ -39,7 +39,10 @@ fn main() {
             "sh(uu:thresh(01,thresh(1,0)))".to_string(),
             "sh(hash160(vvvvvvvvvvvvvvvvvvvv))".to_string(),
             "sh(ripemd160(ccccccccccccccccccCCCCCCcccccccccccccc9c))".to_string(),
-            "wsh(thresh(5,0,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:1,snu:0,snu:1,snu:1,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snnu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snnu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,su:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,snu:0))".to_string()
+            "wsh(thresh(5,0,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:1,snu:0,snu:1,snu:1,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snnu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snnu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,su:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,snu:0))".to_string(),
+            "tr(older(8))".to_string(),
+            format!("tr({})", x_only),
+            format!("tr({},pk({}))", x_only, x_only),
         ];
 
         for script in scripts {
@@ -73,7 +76,8 @@ fn main() {
         *key = derived;
     });
 
-    // read file content and parse it
+    // read file content and parse it 
+    /*
     let file_content = std::fs::read_to_string("/home/user/rust/f-miniscript/fuzz/artifacts/parsing/crash-b5d31129661ca6ecf81d29d7078d8306ebb9a880").unwrap();
     let scripts = file_content.lines().collect::<Vec<&str>>();
     for script in scripts {
@@ -81,6 +85,7 @@ fn main() {
         println!("script: {}", script);
         // execute_script(script).unwrap();
     }
+    */
 
     // test build_script
 
@@ -110,10 +115,10 @@ enum Error<'a> {
 
 fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
     let ctx = tinyminiscript::parse_script(script).map_err(Error::Miniscript)?;
-    let script_buf = ctx
-        .build_script()
-        .map_err(MiniscriptError::ScriptBuilderError)
-        .map_err(Error::Miniscript)?;
+    // let script_buf = ctx
+    //     .build_script()
+    //     .map_err(MiniscriptError::ScriptBuilderError)
+    //     .map_err(Error::Miniscript)?;
     // println!("ast: {}", ctx.print_ast());
     // println!("bitcoin script: {:?}", script_buf.to_asm_string());
 

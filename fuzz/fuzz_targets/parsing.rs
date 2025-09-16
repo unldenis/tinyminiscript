@@ -21,7 +21,7 @@ fuzz_target!(|data: &[u8]| {
         (Err(e), Ok(ctx)) => {
 
             let err  = format!("{:?}", e);
-            if err.contains("invalid taproot internal key") || err.contains("ExpectedChar(')')") {
+            if err.contains("ExpectedChar(')')") {
                 return;
             }
 

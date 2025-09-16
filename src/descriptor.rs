@@ -194,6 +194,14 @@ impl ASTVisitor<()> for DescriptorValidator {
                 }
                 _ => {}
             },
+            Fragment::RawTr { key, inner } => match ctx.descriptor() {
+                Descriptor::Tr => {
+                    if let Some(inner) = inner {
+                        self.visit_ast_by_index(ctx, *inner)?;
+                    }
+                }
+                _ => {}
+            },
         }
         Ok(())
     }
