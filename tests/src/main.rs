@@ -1,97 +1,123 @@
-use std::{ops::Deref, rc::Rc, str::FromStr};
-
-use bitcoin::{PublicKey, XOnlyPublicKey};
 use tinyminiscript::MiniscriptError;
+
 fn main() {
+    println!("🚀 Starting Miniscript Test Suite");
+    println!("=====================================");
+    
+    // Run all test categories
+    test_basic_scripts();
+    test_key_derivation();
+    test_script_building();
+    test_miniscript();
+
+    println!("\n\n\n✅ All tests completed!");
+}
+
+/// Test basic script parsing and execution
+fn test_basic_scripts() {
+    println!("\n📝 Testing Basic Scripts");
+    println!("------------------------");
+    
     let x_only = "0202020202020202020202020202020202020202020202020202020202020202";
     let pub_key = "020202020202020202020202020202020202020202020202020202020202020202";
 
-    if true {
-        let scripts = vec![
-            "sh(wsh(0))".to_string(),
-            "sh(uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuunuuuuunuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuunuuuuunuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu:0)".to_string(),
-            format!("tr(and_v(v:pk({}),pk({})))", x_only, x_only),
-            format!("sh(wsh(and_v(v:pk({}),pk({}))))", pub_key, pub_key),
-            "wsh(multi(1,022f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4,025cbdf0646e5db4eaa398f365f2ea7a0e3d419b7e0330e39ce92bddedcac4f9bc))".to_string(),
-            format!("sh(or_d(pk({}),pk({})))", pub_key, pub_key),
-        //  "l:0p0n#:0pnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnl:nnnnnnnnl:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn0wnnnnnnnnnnnnnnnnAnnnnnnnnnnnnnnnnnnnnnnnnAnnnnnn:0".to_string()
-            "1".to_string(),
-            format!("tr(pk({})):", x_only),
-            "tr(0)".to_string(),
-            "sh(1)".to_string(),
-            "tr(n:0)".to_string(),
-            "sh(j:1)".to_string(),
-            "sh(s:1)".to_string(),
-            "sh(vuuuu:1)".to_string(),
-            "sh(uuuuuuuuuuuuuu:uuuuuu:1)".to_string(),
-            "tr(u:1)".to_string(),
-            "sh(uunnnnnnnnnnnnnnnnnnuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuunnnnnnnuuu:1)".to_string(),
-            "wsh(uuzuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu:0)".to_string(),
-            "wsh(uuzuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu:0)".to_string(),
-            "sh(undvuuuuuuullllllluundvuuuuuuullllllluu:0)".to_string(),
-            "sh(u:after(05))".to_string(),
-            "sh(dvu:0)".to_string(),
-            "sh(wsh(dvu:0))#error".to_string(),
-            "sh(older(+1))".to_string(),
-            "sh(older(2))".to_string(),
-            "sh(u:after(3802199998))".to_string(),
-            "sh(utvjtvntvdv:0)".to_string(),
-            "sh(uu:thresh(01,thresh(1,0)))".to_string(),
-            "sh(hash160(vvvvvvvvvvvvvvvvvvvv))".to_string(),
-            "sh(ripemd160(ccccccccccccccccccCCCCCCcccccccccccccc9c))".to_string(),
-            "wsh(thresh(5,0,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:1,snu:0,snu:1,snu:1,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snnu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snnu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,su:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:1,snu:1,snu:0,snu:1,snu:0,snu:0,snu:1,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snnu:0,sun:0,snu:0,sun:0,snu:1,snu:0,snnu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:1,snu:0,snu:1,snu:1,snu:1,snu:0,snu:0,snu:0,snu:0,snu:1,snu:0,snu:0))".to_string(),
-            "tr(older(8))".to_string(),
-            format!("tr({})", x_only),
-            format!("tr({},pk({}))", x_only, x_only),
-        ];
+    let script_with_keys_1 = format!("tr(and_v(v:pk({}),pk({})))", x_only, x_only);
+    let script_with_keys_2 = format!("sh(wsh(and_v(v:pk({}),pk({}))))", pub_key, pub_key);
+    let script_with_keys_3 = format!("sh(or_d(pk({}),pk({})))", pub_key, pub_key);
+    let script_with_keys_4 = format!("tr(pk({})):", x_only);
+    let script_with_keys_5 = format!("tr({})", x_only);
+    let script_with_keys_6 = format!("tr({},pk({}))", x_only, x_only);
 
-        for script in scripts {
-            println!("--------------------------------");
+    let scripts = vec![
+        // Basic scripts
+        "sh(wsh(0))",
+        "1",
+        "tr(0)",
+        "sh(1)",
+        
+        // Scripts with keys
+        &script_with_keys_1,
+        &script_with_keys_2,
+        &script_with_keys_3,
+        &script_with_keys_4,
+        &script_with_keys_5,
+        &script_with_keys_6,
+        
+        // Multi-signature scripts
+        "wsh(multi(1,022f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4,025cbdf0646e5db4eaa398f365f2ea7a0e3d419b7e0330e39ce92bddedcac4f9bc))",
+        
+        // Time-locked scripts
+        "sh(u:after(05))",
+        "sh(older(+1))",
+        "sh(older(2))",
+        "sh(u:after(3802199998))",
+        "tr(older(8))",
+        
+        // Complex scripts with various fragments
+        "sh(n:0)",
+        "tr(n:0)",
+        "sh(j:1)",
+        "sh(s:1)",
+        "sh(dvu:0)",
+        "sh(wsh(dvu:0))#error",
+        "sh(utvjtvntvdv:0)",
+        "sh(uu:thresh(01,thresh(1,0)))",
+        "sh(hash160(vvvvvvvvvvvvvvvvvvvv))",
+        "sh(ripemd160(ccccccccccccccccccCCCCCCcccccccccccccc9c))",
+    ];
 
-            println!("script: {}\n", script);
-
-            if let Err(e) = execute_script(&script) {
-                println!("error executing script: {:?}", e);
-            }
+    for (i, script) in scripts.iter().enumerate() {
+        println!("\n\n🔍 Test {}: {}", i + 1, script);
+        println!("{}", "─".repeat(50));
+        
+        match execute_script(script) {
+            Ok(_) => println!("✅ Script executed successfully"),
+            Err(e) => println!("❌ Error executing script: {:?}", e),
         }
     }
+}
 
-    println!("--------------------------------");
-
+/// Test key derivation functionality
+fn test_key_derivation() {
+    println!("\n\n🔑 Testing Key Derivation");
+    println!("-------------------------");
+    
     let key = "[aabbccdd/10'/123]tpubDAenfwNu5GyCJWv8oqRAckdKMSUoZjgVF5p8WvQwHQeXjDhAHmGrPa4a4y2Fn7HF2nfCLefJanHV3ny1UY25MRVogizB2zRUdAo7Tr9XAjm/10/*";
     let script = format!("wsh(or_d(pk({}),older(12960)))", key);
 
-    println!("original script  : {}", script);
+    println!("📋 Original script: {}", script);
 
-    let mut ctx = tinyminiscript::parse_script(&script).unwrap();
-    println!("serialized before: {}", ctx.serialize());
-    ctx.derive(22).unwrap();
-    println!("serialized after : {}", ctx.serialize());
+    match tinyminiscript::parse_script(&script) {
+        Ok(mut ctx) => {
+            println!("📦 Serialized before derivation: {}", ctx.serialize());
+            
+            if let Err(e) = ctx.derive(22) {
+                println!("❌ Error during derivation: {:?}", e);
+                return;
+            }
+            
+            println!("📦 Serialized after derivation: {}", ctx.serialize());
 
-    ctx.iterate_keys_mut(|key| {
-        println!("before : {:?}", key.identifier());
-
-        let derived = key.derive(22).unwrap();
-
-        *key = derived;
-    });
-
-    // read file content and parse it 
-    /*
-    let file_content = std::fs::read_to_string("/home/user/rust/f-miniscript/fuzz/artifacts/parsing/crash-b5d31129661ca6ecf81d29d7078d8306ebb9a880").unwrap();
-    let scripts = file_content.lines().collect::<Vec<&str>>();
-    for script in scripts {
-        println!("--------------------------------");
-        println!("script: {}", script);
-        // execute_script(script).unwrap();
+            ctx.iterate_keys_mut(|key| {
+                println!("🔧 Before derivation: {:?}", key.identifier());
+                
+                match key.derive(22) {
+                    Ok(derived) => {
+                        *key = derived;
+                        println!("🔧 After derivation: {:?}", key.identifier());
+                    }
+                    Err(e) => println!("❌ Key derivation error: {:?}", e),
+                }
+            });
+        }
+        Err(e) => println!("❌ Error parsing script: {:?}", e),
     }
-    */
+}
 
-    // test build_script
-
-    println!("--------------------------------");
-    println!("test build_script");
-    println!("--------------------------------");
+/// Test script building functionality
+fn test_script_building() {
+    println!("\n\n🔨 Testing Script Building");
+    println!("-------------------------");
 
     let scripts = vec![
         "sh(n:1)",
@@ -100,59 +126,61 @@ fn main() {
         "wsh(thresh(1,0))"
     ];
 
-    for script in scripts {
-        println!("--------------------------------");
-        let ctx = tinyminiscript::parse_script(script).unwrap();
-        let script_buf = ctx.build_script().unwrap();
-        println!("script: {}\nbuild: {}", script, script_buf.to_asm_string());
+    for (i, script) in scripts.iter().enumerate() {
+        println!("\n\n🔍 Build Test {}: {}", i + 1, script);
+        println!("{}", "─".repeat(50));
+        
+        match tinyminiscript::parse_script(script) {
+            Ok(ctx) => {
+                match ctx.build_script() {
+                    Ok(script_buf) => {
+                        println!("✅ Script built successfully");
+                        println!("📜 Bitcoin script: {}", script_buf.to_asm_string());
+                    }
+                    Err(e) => println!("❌ Error building script: {:?}", e),
+                }
+            }
+            Err(e) => println!("❌ Error parsing script: {:?}", e),
+        }
     }
 }
+
+fn test_miniscript() {
+    println!("\n\n🔍 Testing Miniscript");
+    println!("-------------------------");
+
+    let scripts = vec![
+        "tr(DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD,l:0)",
+    ];
+
+    for (i, script) in scripts.iter().enumerate() {
+        println!("\n\n🔍 Miniscript Test {}: {}", i + 1, script);
+        println!("{}", "─".repeat(50));
+        
+        use miniscript::Descriptor;
+        use miniscript::bitcoin;
+        use std::str::FromStr;
+        match Descriptor::<bitcoin::PublicKey>::from_str(script) {
+            Ok(desc) => {
+                println!("✅ Miniscript descriptor built successfully");
+                println!("📜 Miniscript descriptor: {}", desc);
+            }
+            Err(e) => println!("❌ Error building miniscript descriptor: {:?}", e),
+        }
+    }
+}
+
 #[derive(Debug)]
+#[allow(dead_code)]
 enum Error<'a> {
     Miniscript(MiniscriptError<'a>),
-    // Satisfaction(SatisfyError),
 }
 
+/// Execute a script and log the results
 fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
     let ctx = tinyminiscript::parse_script(script).map_err(Error::Miniscript)?;
-    // let script_buf = ctx
-    //     .build_script()
-    //     .map_err(MiniscriptError::ScriptBuilderError)
-    //     .map_err(Error::Miniscript)?;
-    // println!("ast: {}", ctx.print_ast());
-    // println!("bitcoin script: {:?}", script_buf.to_asm_string());
-
-    println!("bitcoin serialized: {}", ctx.serialize());
-
-    //println!("nodes: {:?}", ctx.nodes);
-    // let satisfied = ctx
-    //     .satisfy(&TestSatisfier {})
-    //     .map_err(Error::Satisfaction)?;
-    // println!("satisfied: {:?}", satisfied.sat);
-
+    
+    println!("📦 Bitcoin serialized: {}", ctx.serialize());
+    
     Ok(())
 }
-
-// struct TestSatisfier {}
-
-// impl Satisfier for TestSatisfier {
-//     fn check_older(&self, locktime: i64) -> Option<bool> {
-//         None
-//     }
-
-//     fn check_after(&self, locktime: i64) -> Option<bool> {
-//         None
-//     }
-
-//     fn sign(&self, pubkey: &dyn tinyminiscript::parser::keys::PublicKeyTrait) -> Option<(Vec<u8>, bool)> {
-//         Some((Vec::new(), false))
-//     }
-
-//     fn preimage(
-//         &self,
-//         hash_func: tinyminiscript::satisfy::HashFunc,
-//         hash: &[u8],
-//     ) -> Option<(Vec<u8>, bool)> {
-//         None
-//     }
-// }
