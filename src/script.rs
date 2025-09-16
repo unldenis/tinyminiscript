@@ -236,8 +236,11 @@ impl<'a> ScriptBuilder<'a> {
                 Ok(builder)
             }
             Fragment::Thresh { k, xs } => {
+                // must be at least one key
+                builder = self.build_fragment(ctx, ctx.get_node(xs[0]), builder)?;
+
                 let mut builder = builder;
-                for x in xs {
+                for x in xs.iter().skip(1) {
                     builder = self.build_fragment(ctx, ctx.get_node(*x), builder)?;
                     builder = builder.push_opcode(opcodes::all::OP_ADD);
                 }
