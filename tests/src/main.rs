@@ -79,7 +79,24 @@ fn main() {
     for script in scripts {
         println!("--------------------------------");
         println!("script: {}", script);
-        execute_script(script).unwrap();
+        // execute_script(script).unwrap();
+    }
+
+    // test build_script
+
+    println!("--------------------------------");
+    println!("test build_script");
+    println!("--------------------------------");
+
+    let scripts = vec![
+        "sh(n:1)",
+    ];
+
+    for script in scripts {
+        println!("--------------------------------");
+        let ctx = tinyminiscript::parse_script(script).unwrap();
+        let script_buf = ctx.build_script().unwrap();
+        println!("script: {}\nbuild: {}", script, script_buf.to_asm_string());
     }
 }
 #[derive(Debug)]

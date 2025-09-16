@@ -18,11 +18,11 @@ fuzz_target!(|data: &[u8]| {
 
     match (ms_descriptor, ts_descriptor) {
         (Ok(desc), Ok(ctx)) => {
-            let ms_script = desc.explicit_script().unwrap();
-            let ts_script = ctx.build_script().unwrap();
+            let ms_script = desc.explicit_script().unwrap().to_asm_string();
+            let ts_script = ctx.build_script().unwrap().to_asm_string();
 
             if ms_script != ts_script {
-                panic!("Script: '{:?}', '{:?}', Build: '{:?}'", script, ms_script, ts_script);
+                panic!("Script: '{:?}'\nMiniscript : '{:?}'\nTinyMiniscript : '{:?}'", script, ms_script, ts_script);
             }
         }
         _ => return,

@@ -315,7 +315,6 @@ impl<'a> ScriptBuilder<'a> {
                 }
                 crate::parser::IdentityType::N => {
                     let builder = self.build_fragment(ctx, ctx.get_node(*x), builder)?;
-                    let builder = builder.push_int(0);
                     let builder = builder.push_opcode(opcodes::all::OP_0NOTEQUAL);
                     Ok(builder)
                 }
