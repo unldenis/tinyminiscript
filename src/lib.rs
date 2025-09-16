@@ -12,12 +12,12 @@
 //! # Examples
 //!
 //! ```rust
-//! use tinyminiscript::{parse_script, script::build_script};
+//! use tinyminiscript::parse_script;
 //!
 //! // Parse a simple miniscript
 //! let result = parse_script("wsh(multi(1,022f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4,025cbdf0646e5db4eaa398f365f2ea7a0e3d419b7e0330e39ce92bddedcac4f9bc))");
 //! if let Ok(ctx) = result {
-//!     let script = build_script(&ctx).unwrap();
+//!     let script = ctx.build_script().unwrap();
 //!     println!("Successfully parsed miniscript");
 //!     println!("Generated script: {:?}", script);
 //! }
@@ -100,12 +100,12 @@ pub enum MiniscriptError<'a> {
 /// # Examples
 ///
 /// ```rust
-/// use tinyminiscript::{parse_script, script::build_script};
+/// use tinyminiscript::parse_script;
 ///
 /// let result = parse_script("pk(02e79c4c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3c8b3)");
 /// match result {
 ///     Ok(ctx) => {
-///         let script = build_script(&ctx).unwrap();
+///         let script = ctx.build_script().unwrap();
 ///         println!("Generated script: {:?}", script);
 ///     }
 ///     Err(e) => eprintln!("Parse error: {:?}", e),

@@ -306,7 +306,6 @@ impl<'a> ScriptBuilder<'a> {
                 }
                 crate::parser::IdentityType::J => {
                     let builder = builder.push_opcode(opcodes::all::OP_SIZE);
-                    let builder = builder.push_int(0);
                     let builder = builder.push_opcode(opcodes::all::OP_0NOTEQUAL);
                     let builder = builder.push_opcode(opcodes::all::OP_IF);
                     let builder = self.build_fragment(ctx, ctx.get_node(*x), builder)?;

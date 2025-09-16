@@ -90,6 +90,7 @@ fn main() {
 
     let scripts = vec![
         "sh(n:1)",
+        "sh(ntvtvnnnnnntvnnnjnnndvn:0)",
     ];
 
     for script in scripts {
