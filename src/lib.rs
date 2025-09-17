@@ -39,7 +39,6 @@ pub mod limits;
 pub mod parser;
 mod utils;
 
-#[cfg(feature = "satisfy")]
 /// Satisfactions and dis-satisfactions of miniscript expressions
 pub mod satisfy;
 /// Bitcoin script generation from parsed miniscript
