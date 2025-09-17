@@ -395,15 +395,6 @@ impl<'a> ParserContext<'a> {
         satisfy::satisfy(self, satisfier, &self.get_root())
     }
 
-    #[cfg(feature = "ast-printer")]
-    /// Returns a tree representation of the AST.
-    pub fn print_ast(&self) -> alloc::string::String {
-        use crate::ast_printer;
-
-        let mut ast_printer = ast_printer::ASTPrinter::new();
-        ast_printer.print_ast(self)
-    }
-
     #[inline]
     pub fn descriptor(&self) -> Descriptor {
         self.inner_descriptor.clone()
