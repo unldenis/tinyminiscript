@@ -62,7 +62,7 @@ impl TypeInfo {
             base_type,
             properties,
             pk_cost,
-            has_free_verify: false,
+            has_free_verify,
             tree_height,
         }
     }
@@ -124,39 +124,80 @@ pub enum CorrectnessPropertiesVisitorError {
     },
 }
 
+const TYPE_FALSE: TypeInfo = TypeInfo::new(
+    MINISCRIPT_TYPE_B,
+    PROPERTY_Z | PROPERTY_U | PROPERTY_D,
+    1,
+    false,
+    0,
+);
+
+const TYPE_TRUE : TypeInfo = TypeInfo::new(
+    MINISCRIPT_TYPE_B,
+    PROPERTY_Z | PROPERTY_U,
+    1,
+    false,
+    0,
+);
+
+const TYPE_PKK: TypeInfo = TypeInfo::new(
+    MINISCRIPT_TYPE_K,
+    PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
+    34,
+    false,
+    0,
+);
+
+const TYPE_PKH: TypeInfo = TypeInfo::new(
+    MINISCRIPT_TYPE_K,
+    PROPERTY_N | PROPERTY_D | PROPERTY_U,
+    24,
+    false,
+    0,
+);
+
+const TYPE_SHA256 : TypeInfo = TypeInfo::new(
+    MINISCRIPT_TYPE_B,
+    PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
+    33 + 6,
+    true,
+    0,
+);
+
+const TYPE_HASH256 : TypeInfo = TypeInfo::new(
+    MINISCRIPT_TYPE_B,
+    PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
+    33 + 6,
+    true,
+    0,
+);
+
+const TYPE_RIPEMD160 : TypeInfo = TypeInfo::new(
+    MINISCRIPT_TYPE_B,
+    PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
+    21 + 6,
+    true,
+    0,
+);
+
+const TYPE_HASH160 : TypeInfo = TypeInfo::new(
+    MINISCRIPT_TYPE_B,
+    PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
+    21 + 6,
+    true,
+    0,
+);
+
+
 impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
     type Error = CorrectnessPropertiesVisitorError;
 
     fn visit_ast(&mut self, ctx: &ParserContext, node: &AST) -> Result<TypeInfo, Self::Error> {
         match &node.fragment {
-            Fragment::False => Ok(TypeInfo::new(
-                MINISCRIPT_TYPE_B,
-                PROPERTY_Z | PROPERTY_U | PROPERTY_D,
-                1,
-                false,
-                0,
-            )),
-            Fragment::True => Ok(TypeInfo::new(
-                MINISCRIPT_TYPE_B,
-                PROPERTY_Z | PROPERTY_U,
-                1,
-                false,
-                0,
-            )),
-            Fragment::PkK { key } => Ok(TypeInfo::new(
-                MINISCRIPT_TYPE_K,
-                PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
-                34,
-                false,
-                0,
-            )),
-            Fragment::PkH { key } => Ok(TypeInfo::new(
-                MINISCRIPT_TYPE_K,
-                PROPERTY_N | PROPERTY_D | PROPERTY_U,
-                24,
-                false,
-                0,
-            )),
+            Fragment::False => Ok(TYPE_FALSE),
+            Fragment::True => Ok(TYPE_TRUE),
+            Fragment::PkK { key } => Ok(TYPE_PKK),
+            Fragment::PkH { key } => Ok(TYPE_PKH),
             Fragment::Older { n } => Ok(TypeInfo::new(
                 MINISCRIPT_TYPE_B,
                 PROPERTY_Z,
@@ -171,34 +212,10 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
                 false,
                 0,
             )),
-            Fragment::Sha256 { h } => Ok(TypeInfo::new(
-                MINISCRIPT_TYPE_B,
-                PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
-                33 + 6,
-                true,
-                0,
-            )),
-            Fragment::Hash256 { h } => Ok(TypeInfo::new(
-                MINISCRIPT_TYPE_B,
-                PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
-                33 + 6,
-                true,
-                0,
-            )),
-            Fragment::Ripemd160 { h } => Ok(TypeInfo::new(
-                MINISCRIPT_TYPE_B,
-                PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
-                21 + 6,
-                true,
-                0,
-            )),
-            Fragment::Hash160 { h } => Ok(TypeInfo::new(
-                MINISCRIPT_TYPE_B,
-                PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
-                21 + 6,
-                true,
-                0,
-            )),
+            Fragment::Sha256 { h } => Ok(TYPE_SHA256),
+            Fragment::Hash256 { h } => Ok(TYPE_HASH256),
+            Fragment::Ripemd160 { h } => Ok(TYPE_RIPEMD160),
+            Fragment::Hash160 { h } => Ok(TYPE_HASH160),
             Fragment::AndOr { x, y, z } => {
                 // X is Bdu; Y and Z are both B, K, or V
                 let x_type = self.visit_ast_by_index(ctx, *x)?;

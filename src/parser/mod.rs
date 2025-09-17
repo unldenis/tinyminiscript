@@ -1,6 +1,7 @@
 pub mod keys;
 
 use core::str::FromStr;
+use alloc::string::String;
 
 use bitcoin::{Address, Network, ScriptBuf};
 
@@ -288,7 +289,7 @@ pub enum ParseError<'a> {
 pub struct ParserContext<'a> {
     tokens: Vec<(&'a str, Position)>,
     current_token: usize,
-    nodes: Vec<AST>,
+    pub(crate) nodes: Vec<AST>,
 
     root: Option<AST>,
 
@@ -312,18 +313,18 @@ impl<'a> ParserContext<'a> {
     }
 
     // return the next token
-    #[inline]
-    fn next_token(&mut self) -> Option<(&'a str, Position)> {
+    fn next_token(&mut self, context: &'static str) -> Result<(&'a str, Position), ParseError<'a>> {
         if self.current_token < self.tokens.len() {
             let token = self.tokens[self.current_token];
             self.current_token += 1;
-            Some(token)
+            Ok(token)
         } else {
-            None
+            Err(ParseError::UnexpectedEof {
+                context,
+            })
         }
     }
 
-    #[inline]
     fn peek_token(&self) -> Option<(&'a str, Position)> {
         if self.current_token < self.tokens.len() {
             Some(self.tokens[self.current_token])
@@ -332,14 +333,12 @@ impl<'a> ParserContext<'a> {
         }
     }
 
-    #[inline]
     fn expect_token(
         &mut self,
+        context: &'static str,
         expected: &'static str,
     ) -> Result<(&'a str, Position), ParseError<'a>> {
-        let (token, column) = self.next_token().ok_or(ParseError::UnexpectedEof {
-            context: "expect_token",
-        })?;
+        let (token, column) = self.next_token(context)?;
         if token != expected {
             return Err(ParseError::UnexpectedToken {
                 expected,
@@ -349,7 +348,6 @@ impl<'a> ParserContext<'a> {
         Ok((token, column))
     }
 
-    #[inline]
     fn peek_next_token(&self) -> Option<(&'a str, Position)> {
         if self.current_token + 1 < self.tokens.len() {
             Some(self.tokens[self.current_token + 1])
@@ -358,7 +356,6 @@ impl<'a> ParserContext<'a> {
         }
     }
 
-    #[inline]
     fn check_next_tokens(&self, tokens: &[&'a str]) -> bool {
         if self.current_token + tokens.len() > self.tokens.len() {
             return false;
@@ -372,35 +369,61 @@ impl<'a> ParserContext<'a> {
         true
     }
 
-    #[inline]
     fn add_node(&mut self, ast: AST) -> NodeIndex {
         let index = self.nodes.len() as NodeIndex;
         self.nodes.push(ast);
         index
     }
 
-    #[inline]
+    fn parse_inner_paren(&mut self, context: &'static str) -> Result<(&'a str, Position), ParseError<'a>> {
+        self.next_token(context)?; // Advance past the fragment name
+
+        let (_l_paren, _l_paren_column) = self.expect_token(context, "(")?;
+        let inner = self.next_token(context)?;
+        let (_r_paren, _r_paren_column) = self.expect_token(context, ")")?;
+        Ok(inner)
+    }
+
+    fn parse_call<const N: usize>(&mut self, context: &'static str) -> Result<[AST; N], ParseError<'a>> {
+        self.next_token(context)?; // Advance past the fragment name
+
+        let (_l_paren, _l_paren_column) = self.expect_token(context, "(")?;
+        
+        // Create uninitialized array
+        let mut asts: [core::mem::MaybeUninit<AST>; N] = unsafe { core::mem::MaybeUninit::uninit().assume_init() };
+        
+        // Fill first element
+        asts[0].write(parse_internal(self)?);
+        
+        // Fill remaining elements
+        for i in 1..N {
+            let (_comma, _comma_column) = self.expect_token(context, ",")?;
+            asts[i].write(parse_internal(self)?);
+        }
+
+        let (_r_paren, _r_paren_column) = self.expect_token(context, ")")?;
+
+        // Convert to initialized array
+        Ok(unsafe { core::mem::transmute_copy(&asts) })
+    }
+
     pub fn get_node(&self, index: NodeIndex) -> &AST {
         &self.nodes[index as usize]
     }
 
-    #[inline]
     pub fn get_root(&self) -> &AST {
         self.root.as_ref().expect("Root node not found")
     }
 
-    #[inline]
     #[cfg(feature = "satisfy")]
-    pub fn satisfy(&self, satisfier: &dyn Satisfier) -> Result<Satisfactions, SatisfyError> {
-        satisfy::satisfy(self, satisfier, &self.get_root())
+    pub fn satisfy(&self, satisfier: &dyn crate::satisfy::Satisfier) -> Result<crate::satisfy::Satisfactions, crate::satisfy::SatisfyError> {
+        crate::satisfy::satisfy(self, satisfier, &self.get_root())
     }
 
-    #[inline]
     pub fn descriptor(&self) -> Descriptor {
         self.inner_descriptor.clone()
     }
 
-    #[inline]
     pub fn is_wrapped(&self) -> bool {
         self.top_level_descriptor == Some(Descriptor::Sh)
     }
@@ -448,7 +471,7 @@ impl<'a> ParserContext<'a> {
     }
 
     /// Derive all the keys in the AST.
-    pub fn derive(&mut self, index: u32) -> Result<(), alloc::string::String> {
+    pub fn derive(&mut self, index: u32) -> Result<(), String> {
         for node in &mut self.nodes {
             match &mut node.fragment {
                 Fragment::PkK { key } | Fragment::PkH { key } | Fragment::RawPkH { key } => {
@@ -474,8 +497,7 @@ impl<'a> ParserContext<'a> {
     }
 
     /// Serialize the AST to a string.
-    #[inline]
-    pub fn serialize(&self) -> alloc::string::String {
+    pub fn serialize(&self) -> String {
         let mut serializer = crate::utils::serialize::Serializer::new();
         serializer.serialize(self)
     }
@@ -489,7 +511,6 @@ impl<'a> ParserContext<'a> {
     }
 }
 
-#[inline]
 pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
     // check if the input is ascii
     if !input.is_ascii() {
@@ -543,7 +564,7 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'
             },
         });
     } else {
-        ctx.next_token();
+        ctx.next_token("parse_descriptor")?;
     }
 
     // For sh descriptors, we need to check what's inside
@@ -554,9 +575,9 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'
     }
 
     // Standard descriptor parsing
-    let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+    let (_l_paren, _l_paren_column) = ctx.expect_token("parse_descriptor", "(")?;
     let inner = parse_top_internal(ctx)?;
-    let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+    let (_r_paren, _r_paren_column) = ctx.expect_token("parse_descriptor", ")")?;
 
     Ok(AST {
         position: column,
@@ -571,12 +592,12 @@ fn parse_sh_descriptor<'a>(
     ctx: &mut ParserContext<'a>,
     sh: (&'a str, Position),
 ) -> Result<AST, ParseError<'a>> {
-    let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+    let (_l_paren, _l_paren_column) = ctx.expect_token("parse_sh_descriptor", "(")?;
 
     // Parse the inner descriptor directly
     let inner = parse_descriptor(ctx)?;
 
-    let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+    let (_r_paren, _r_paren_column) = ctx.expect_token("parse_sh_descriptor", ")")?;
 
     Ok(AST {
         position: sh.1,
@@ -612,7 +633,7 @@ fn parse_top_internal<'a>(
         .ok_or(ParseError::UnexpectedEof { context: "parse_top_internal" })?;
     match ctx.descriptor() {
         Descriptor::Pkh | Descriptor::Wpkh => {
-            ctx.next_token(); // Advance past the key
+            ctx.next_token("parse_top_internal")?; // Advance past the key
 
             let key = keys::parse_key((token, column), &ctx.inner_descriptor)?;
 
@@ -622,7 +643,7 @@ fn parse_top_internal<'a>(
             })
         }
         Descriptor::Tr => {
-            ctx.next_token(); // Advance past the key
+            ctx.next_token("parse_top_internal")?; // Advance past the key
 
             let key = keys::parse_key((token, column), &ctx.inner_descriptor)?;
 
@@ -630,7 +651,7 @@ fn parse_top_internal<'a>(
             if let Some((next_token, next_column)) = ctx.peek_token() {
                 if next_token == "," {
 
-                    ctx.next_token(); // Advance past the comma
+                    ctx.next_token("parse_top_internal")?; // Advance past the comma
                     let inner = parse_internal(ctx)?;
                     return Ok(AST {
                         position: column,
@@ -659,13 +680,7 @@ fn parse_internal<'a>(
 
     match token {
         "pk_k" => {
-            ctx.next_token(); // Advance past "pk_k"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let key_token = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "pk_k" })?;
-
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let key_token = ctx.parse_inner_paren("pk_k")?;
 
             // Get the key type based on the inner descriptor
             let key = keys::parse_key(key_token, &ctx.inner_descriptor)?;
@@ -676,13 +691,7 @@ fn parse_internal<'a>(
             })
         }
         "pk_h" => {
-            ctx.next_token(); // Advance past "pk_h"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let key_token = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "pk_h" })?;
-
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let key_token = ctx.parse_inner_paren("pk_h")?;
 
             // Get the key type based on the inner descriptor
             let key = keys::parse_key(key_token, &ctx.inner_descriptor)?;
@@ -693,15 +702,8 @@ fn parse_internal<'a>(
             })
         }
         "pk" => {
-            // pk(key) = c:pk_k(key)
-
-            ctx.next_token(); // Advance past "pk"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (key, key_column) = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "pk" })?;
-
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            // pk(key) = c:pk_k(key)    
+            let (key, key_column) = ctx.parse_inner_paren("pk")?;
 
             // Get the key type based on the inner descriptor
             let key = keys::parse_key((key, key_column), &ctx.inner_descriptor)?;
@@ -722,15 +724,8 @@ fn parse_internal<'a>(
             Ok(ast)
         }
         "pkh" => {
-            // pkh(key) = c:pk_h(key)
-
-            ctx.next_token(); // Advance past "pkh"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let key_token = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "pkh" })?;
-
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            // pkh(key) = c:pk_h(key)   
+            let key_token = ctx.parse_inner_paren("pkh")?;
 
             // Get the key type based on the inner descriptor
             let key = keys::parse_key(key_token, &ctx.inner_descriptor)?;
@@ -752,12 +747,7 @@ fn parse_internal<'a>(
         }
 
         "older" => {
-            ctx.next_token(); // Advance past "older"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (n, n_column) = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "older" })?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let (n, n_column) = ctx.parse_inner_paren("older")?;
 
             // Check if the number starts with a digit 1-9
             if is_invalid_number(&n) {
@@ -788,12 +778,7 @@ fn parse_internal<'a>(
         }
 
         "after" => {
-            ctx.next_token(); // Advance past "after"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (n, n_column) = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "after" })?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let (n, n_column) = ctx.parse_inner_paren("after")?;
 
             // check if n is u32
 
@@ -825,12 +810,7 @@ fn parse_internal<'a>(
         }
 
         "sha256" => {
-            ctx.next_token(); // Advance past "sha256"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (h, _h_column) = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "sha256" })?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let (h, _h_column) = ctx.parse_inner_paren("sha256")?;
 
             let h: [u8; 32] = parse_hex_to_bytes(h, _h_column)?;
 
@@ -841,12 +821,7 @@ fn parse_internal<'a>(
         }
 
         "hash256" => {
-            ctx.next_token(); // Advance past "hash256"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (h, _h_column) = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "hash256" })?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let (h, _h_column) = ctx.parse_inner_paren("hash256")?;
 
             let h: [u8; 32] = parse_hex_to_bytes(h, _h_column)?;
 
@@ -857,12 +832,7 @@ fn parse_internal<'a>(
         }
 
         "ripemd160" => {
-            ctx.next_token(); // Advance past "ripemd160"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (h, _h_column) = ctx.next_token().ok_or(ParseError::UnexpectedEof {
-                context: "ripemd160",
-            })?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let (h, _h_column) = ctx.parse_inner_paren("ripemd160")?;
 
             let h: [u8; 20] = parse_hex_to_bytes(h, _h_column)?;
 
@@ -873,12 +843,7 @@ fn parse_internal<'a>(
         }
 
         "hash160" => {
-            ctx.next_token(); // Advance past "hash160"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let (h, _h_column) = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "hash160" })?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let (h, _h_column) = ctx.parse_inner_paren("hash160")?;
 
             let h: [u8; 20] = parse_hex_to_bytes(h, _h_column)?;
 
@@ -889,21 +854,7 @@ fn parse_internal<'a>(
         }
 
         "andor" => {
-            ctx.next_token(); // Advance past "andor"
-
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-
-            let x = parse_internal(ctx)?;
-
-            let (_comma, _comma_column) = ctx.expect_token(",")?;
-
-            let y = parse_internal(ctx)?;
-
-            let (_comma, _comma_column) = ctx.expect_token(",")?;
-
-            let z = parse_internal(ctx)?;
-
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let [x, y, z] = ctx.parse_call("andor")?;
 
             Ok(AST {
                 position: column,
@@ -916,12 +867,7 @@ fn parse_internal<'a>(
         }
 
         "and_v" => {
-            ctx.next_token(); // Advance past "and_v"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
-            let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let y = parse_internal(ctx)?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let [x, y] = ctx.parse_call("and_v")?;
 
             Ok(AST {
                 position: column,
@@ -933,12 +879,7 @@ fn parse_internal<'a>(
         }
 
         "and_b" => {
-            ctx.next_token(); // Advance past "and_b"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
-            let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let y = parse_internal(ctx)?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let [x, y] = ctx.parse_call("and_b")?;
 
             Ok(AST {
                 position: column,
@@ -952,12 +893,7 @@ fn parse_internal<'a>(
         "and_n" => {
             // and_n(X,Y) = andor(X,Y,0)
 
-            ctx.next_token(); // Advance past "and_n"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
-            let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let y = parse_internal(ctx)?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let [x, y] = ctx.parse_call("and_n")?;
 
             let ast = AST {
                 position: column,
@@ -974,12 +910,7 @@ fn parse_internal<'a>(
         }
 
         "or_b" => {
-            ctx.next_token(); // Advance past "or_b"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
-            let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let z = parse_internal(ctx)?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let [x, z] = ctx.parse_call("or_b")?;
 
             Ok(AST {
                 position: column,
@@ -991,12 +922,7 @@ fn parse_internal<'a>(
         }
 
         "or_c" => {
-            ctx.next_token(); // Advance past "or_c"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
-            let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let z = parse_internal(ctx)?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let [x, z] = ctx.parse_call("or_c")?;
 
             Ok(AST {
                 position: column,
@@ -1008,12 +934,7 @@ fn parse_internal<'a>(
         }
 
         "or_d" => {
-            ctx.next_token(); // Advance past "or_d"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
-            let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let z = parse_internal(ctx)?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let [x, z] = ctx.parse_call("or_d")?;
 
             Ok(AST {
                 position: column,
@@ -1025,12 +946,7 @@ fn parse_internal<'a>(
         }
 
         "or_i" => {
-            ctx.next_token(); // Advance past "or_i"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
-            let x = parse_internal(ctx)?;
-            let (_comma, _comma_column) = ctx.expect_token(",")?;
-            let z = parse_internal(ctx)?;
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let [x, z] = ctx.parse_call("or_i")?;
 
             Ok(AST {
                 position: column,
@@ -1042,11 +958,10 @@ fn parse_internal<'a>(
         }
 
         "thresh" => {
-            ctx.next_token(); // Advance past "thresh"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            ctx.next_token("thresh")?; // Advance past "thresh"
+            let (_l_paren, _l_paren_column) = ctx.expect_token("thresh", "(")?;
             let (k, k_column) = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "thresh" })?;
+                .next_token("thresh")?;
 
             // Check if the number starts with a digit 1-9
             if is_invalid_number(&k) {
@@ -1067,13 +982,13 @@ fn parse_internal<'a>(
                 if token == ")" {
                     break;
                 } else if token == "," {
-                    ctx.next_token();
+                    ctx.next_token("thresh")?;
                 }
                     let x = parse_internal(ctx)?;
                 xs.push(ctx.add_node(x));
             }
 
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token("thresh", ")")?;
 
             Ok(AST {
                 position: column,
@@ -1082,11 +997,10 @@ fn parse_internal<'a>(
         }
 
         "multi" => {
-            ctx.next_token(); // Advance past "multi"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            ctx.next_token("multi")?; // Advance past "multi"
+            let (_l_paren, _l_paren_column) = ctx.expect_token("multi", "(")?;
             let (k, k_column) = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "multi" })?;
+                .next_token("multi")?;
             let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
                 expected: "i32",
                 found: (k, k_column),
@@ -1098,11 +1012,10 @@ fn parse_internal<'a>(
                 if token == ")" {
                     break;
                 } else if token == "," {
-                    ctx.next_token();
+                    ctx.next_token("multi")?;
                 }
                 let (key, key_column) = ctx
-                    .next_token()
-                    .ok_or(ParseError::UnexpectedEof { context: "multi" })?;
+                    .next_token("multi")?;
 
                 let key = bitcoin::PublicKey::from_str(key).map_err(|e| {
                     ParseError::InvalidKey {
@@ -1114,7 +1027,7 @@ fn parse_internal<'a>(
                 keys.push(KeyToken::new(KeyTokenInner::PublicKey(key)));
             }
 
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token("multi", ")")?;
 
             Ok(AST {
                 position: column,
@@ -1123,11 +1036,10 @@ fn parse_internal<'a>(
         }
 
         "multi_a" => {
-            ctx.next_token(); // Advance past "multi_a"
-            let (_l_paren, _l_paren_column) = ctx.expect_token("(")?;
+            ctx.next_token("multi_a")?; // Advance past "multi_a"
+            let (_l_paren, _l_paren_column) = ctx.expect_token("multi_a", "(")?;
             let (k, k_column) = ctx
-                .next_token()
-                .ok_or(ParseError::UnexpectedEof { context: "multi_a" })?;
+                .next_token("multi_a")?;
             let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
                 expected: "i32",
                 found: (k, k_column),
@@ -1139,11 +1051,10 @@ fn parse_internal<'a>(
                 if token == ")" {
                     break;
                 } else if token == "," {
-                    ctx.next_token();
+                    ctx.next_token("multi_a")?;
                 }
                 let (key, key_column) = ctx
-                    .next_token()
-                    .ok_or(ParseError::UnexpectedEof { context: "multi_a" })?;
+                    .next_token("multi_a")?;
                 let key = bitcoin::XOnlyPublicKey::from_str(key).map_err(|e| {
                     ParseError::InvalidXOnlyKey {
                         key,
@@ -1153,7 +1064,7 @@ fn parse_internal<'a>(
                 keys.push(KeyToken::new(KeyTokenInner::XOnlyPublicKey(key)));
             }
 
-            let (_r_paren, _r_paren_column) = ctx.expect_token(")")?;
+            let (_r_paren, _r_paren_column) = ctx.expect_token("multi_a", ")")?;
 
             Ok(AST {
                 position: column,
@@ -1166,9 +1077,9 @@ fn parse_internal<'a>(
 
             if let Some((peek_token, _peek_token_column)) = ctx.peek_next_token() {
                 if peek_token == ":" {
-                    ctx.next_token(); // Advance past identity type
+                    ctx.next_token("identity")?; // Advance past identity type
 
-                    ctx.expect_token(":")?;
+                    ctx.expect_token("identity", ":")?;
 
                     // multi colon is not allowed
                     // example: sh(uuuuuuuuuuuuuu:uuuuuu:1)
@@ -1276,14 +1187,14 @@ fn parse_bool<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>> {
 
     match token {
         "0" => {
-            ctx.next_token();
+            ctx.next_token("parse_bool")?;
             Ok(AST {
                 position: column,
                 fragment: Fragment::False,
             })
         }
         "1" => {
-            ctx.next_token();
+            ctx.next_token("parse_bool")?;
             Ok(AST {
                 position: column,
                 fragment: Fragment::True,

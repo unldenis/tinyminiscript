@@ -6,6 +6,8 @@ use crate::{
     bitcoin_definition_link, parser::{keys::KeyToken, Fragment, ParserContext, AST}, Vec
 };
 
+use alloc::string::String;
+
 pub trait Satisfier {
     /// CheckOlder checks if the OP_CHECKSEQUENCEVERIFY call is satisfied in the context of a
     /// transaction.
@@ -157,11 +159,11 @@ impl Satisfactions {
 
 #[cfg_attr(feature = "debug", derive(Debug))]
 pub enum SatisfyError {
-    MissingSignature(alloc::string::String),
+    MissingSignature(String),
     MissingLockTime(u32),
     MissingPreimage(HashFunc),
     InvalidPreimage(HashFunc),
-    NonDefiniteKey(alloc::string::String),
+    NonDefiniteKey(String),
     TaprootNotSupported,
 }
 

@@ -29,7 +29,6 @@
 //! enhanced error reporting capabilities.
 
 #![cfg_attr(not(test), no_std)]
-#![forbid(unsafe_code)]
 
 /// Bitcoin descriptor parsing and validation
 pub mod descriptor;
@@ -40,6 +39,7 @@ pub mod parser;
 mod utils;
 
 /// Satisfactions and dis-satisfactions of miniscript expressions
+#[cfg(feature = "satisfy")]
 pub mod satisfy;
 /// Bitcoin script generation from parsed miniscript
 pub mod script;
@@ -120,7 +120,7 @@ pub fn parse_script<'a>(script: &'a str) -> Result<ParserContext<'a>, Miniscript
 
     // Validate the descriptor structure
     let _: () = descriptor::DescriptorValidator::new()
-        .visit(&ctx)
+        .validate(&ctx)
         .map_err(MiniscriptError::DescriptorVisitorError)?;
 
     // Check the recursion depth

@@ -9,6 +9,6 @@ rand = "0.8"
 
 secp256k1 = { version = "0.29.1", features = ["rand"] }
 bitcoin = { version = "0.32.7", features = ["rand"] }
-tinyminiscript = { path = "../" }
+tinyminiscript = { path = "../" , default-features = false, features = ["debug"]}
 
 miniscript = "12.3.5"

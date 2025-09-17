@@ -17,7 +17,7 @@ bitcoin = { version = "0.32.7", default-features = false }
 crate-type = ["lib"]
 
 [features]
-default = ["debug"]
+default = ["debug", "satisfy"]
 # Enable Debug trait implementations for error types
 debug = []
 satisfy = []

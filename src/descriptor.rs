@@ -44,6 +44,7 @@ impl<'a> TryFrom<&'a str> for Descriptor {
     }
 }
 
+#[cfg(feature = "debug")]
 impl core::fmt::Debug for Descriptor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -64,6 +65,68 @@ impl DescriptorValidator {
     pub const fn new() -> Self {
         Self {}
     }
+
+    /// Validate the descriptor structure
+    /// Not using a Visitor pattern because it's not needed for the current use case.
+    pub fn validate(&self, ctx: &ParserContext) -> Result<(), DescriptorVisitorError> {
+        let descriptor = ctx.descriptor();
+        for ele in ctx.nodes.iter() {
+            match &ele.fragment {
+                Fragment::PkK { key } | Fragment::PkH { key } => {
+                    match &descriptor {
+                        Descriptor::Bare => {}
+                        Descriptor::Pkh => {}
+                        Descriptor::Sh => {}
+                        Descriptor::Wpkh | Descriptor::Wsh => {
+                            if !key.is_compressed() {
+                                return Err(DescriptorVisitorError::PublicKeyNotCompressed {
+                                    position: ele.position,
+                                });
+                            }
+                        }
+                        Descriptor::Tr => {}
+                    }
+                }
+                Fragment::Multi { keys, .. } => {
+                    // (P2WSH only)
+                    if descriptor != Descriptor::Wsh {
+                        return Err(DescriptorVisitorError::InvalidFragmentForDescriptor {
+                            position: ele.position,
+                            expected: Descriptor::Wsh,
+                            found: descriptor,
+                        });
+                    }
+                }
+                Fragment::MultiA { keys, .. } => {
+                    // Tapscript only
+                    if descriptor != Descriptor::Tr {
+                        return Err(DescriptorVisitorError::InvalidFragmentForDescriptor {
+                            position: ele.position,
+                            expected: Descriptor::Tr,
+                            found: descriptor,
+                        });
+                    }
+                }
+                Fragment::RawPkH { key } => {
+   
+                    match &descriptor {
+                        Descriptor::Wpkh => {
+                            if !key.is_compressed() {
+                                return Err(DescriptorVisitorError::PublicKeyNotCompressed {
+                                    position: ele.position,
+                                });
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {
+                    continue;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "debug", derive(Debug))]
@@ -76,133 +139,4 @@ pub enum DescriptorVisitorError {
     PublicKeyNotCompressed {
         position: Position,
     },
-}
-
-impl ASTVisitor<()> for DescriptorValidator {
-    type Error = DescriptorVisitorError;
-
-    fn visit_ast(&mut self, ctx: &ParserContext, node: &AST) -> Result<(), Self::Error> {
-        match &node.fragment {
-            Fragment::Descriptor { descriptor, inner } => {
-                self.visit_ast_by_index(ctx, *inner)?;
-            }
-            Fragment::False => {}
-            Fragment::True => {}
-            Fragment::PkK { key } | Fragment::PkH { key } => match &ctx.descriptor() {
-                Descriptor::Bare => {}
-                Descriptor::Pkh => {}
-                Descriptor::Sh => {}
-                Descriptor::Wpkh | Descriptor::Wsh => {
-                    if !key.is_compressed() {
-                        return Err(DescriptorVisitorError::PublicKeyNotCompressed {
-                            position: node.position,
-                        });
-                    }
-                }
-                Descriptor::Tr => {}
-            },
-            Fragment::Older { n } => {}
-            Fragment::After { n } => {}
-            Fragment::Sha256 { h } => {}
-            Fragment::Hash256 { h } => {}
-            Fragment::Ripemd160 { h } => {}
-            Fragment::Hash160 { h } => {}
-            Fragment::AndOr { x, y, z } => {
-                self.visit_ast_by_index(ctx, *x)?;
-                self.visit_ast_by_index(ctx, *y)?;
-                self.visit_ast_by_index(ctx, *z)?;
-            }
-            Fragment::AndV { x, y } => {
-                self.visit_ast_by_index(ctx, *x)?;
-                self.visit_ast_by_index(ctx, *y)?;
-            }
-            Fragment::AndB { x, y } => {
-                self.visit_ast_by_index(ctx, *x)?;
-                self.visit_ast_by_index(ctx, *y)?;
-            }
-            Fragment::OrB { x, z } => {
-                self.visit_ast_by_index(ctx, *x)?;
-                self.visit_ast_by_index(ctx, *z)?;
-            }
-            Fragment::OrC { x, z } => {
-                self.visit_ast_by_index(ctx, *x)?;
-                self.visit_ast_by_index(ctx, *z)?;
-            }
-            Fragment::OrD { x, z } => {
-                self.visit_ast_by_index(ctx, *x)?;
-                self.visit_ast_by_index(ctx, *z)?;
-            }
-            Fragment::OrI { x, z } => {
-                self.visit_ast_by_index(ctx, *x)?;
-                self.visit_ast_by_index(ctx, *z)?;
-            }
-            Fragment::Thresh { k, xs } => {
-                for x in xs {
-                    self.visit_ast_by_index(ctx, *x)?;
-                }
-            }
-            Fragment::Multi { k, keys } => {
-                // (P2WSH only)
-                if ctx.descriptor() != Descriptor::Wsh {
-                    return Err(DescriptorVisitorError::InvalidFragmentForDescriptor {
-                        position: node.position,
-                        expected: Descriptor::Wsh,
-                        found: ctx.descriptor(),
-                    });
-                }
-
-                // Already parsing valid keys in the parser
-
-                // for key in keys.iter() {
-                //     if !key.is_compressed() {
-                //         return Err(DescriptorVisitorError::PublicKeyNotCompressed {
-                //             position: node.position,
-                //         });
-                //     }
-                // }
-            }
-            Fragment::MultiA { k, keys } => {
-                // Tapscript only
-                if ctx.descriptor() != Descriptor::Tr {
-                    return Err(DescriptorVisitorError::InvalidFragmentForDescriptor {
-                        position: node.position,
-                        expected: Descriptor::Tr,
-                        found: ctx.descriptor(),
-                    });
-                }
-
-                // Already parsing valid keys in the parser
-
-                // for key in keys.iter() {
-                //     if !key.is_compressed() {
-                //         return Err(DescriptorVisitorError::PublicKeyNotCompressed {
-                //             position: node.position,
-                //         });
-                //     }
-                // }
-            }
-            Fragment::Identity { identity_type, x } => {
-                self.visit_ast_by_index(ctx, *x)?;
-            }
-            Fragment::RawPkH { key } => match ctx.descriptor() {
-                Descriptor::Wpkh => {
-                    if !key.is_compressed() {
-                        return Err(DescriptorVisitorError::PublicKeyNotCompressed {
-                            position: node.position,
-                        });
-                    }
-                }
-                _ => {}
-            },
-            Fragment::RawTr { key, inner } => match ctx.descriptor() {
-                Descriptor::Tr => {
-                    if let Some(inner) = inner {
-                        self.visit_ast_by_index(ctx, *inner)?;
-                    }
-                }
-                _ => {}
-            },
-        }
-        Ok(())
-    }
 }

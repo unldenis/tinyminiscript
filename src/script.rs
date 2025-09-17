@@ -8,6 +8,7 @@ use crate::{
     descriptor::Descriptor,
     parser::{AST, Fragment, ParserContext, Position},
 };
+use alloc::string::String;
 
 #[cfg_attr(feature = "debug", derive(Debug))]
 pub enum ScriptBuilderError<'a> {
@@ -20,7 +21,7 @@ pub enum ScriptBuilderError<'a> {
         position: Position,
         key: &'a str,
     },
-    NonDefiniteKey(alloc::string::String),
+    NonDefiniteKey(String),
 
     NoAddressForm,
 }

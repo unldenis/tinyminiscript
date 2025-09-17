@@ -1,4 +1,4 @@
-// Implementation from https://github.com/rust-bitcoin/rust-miniscript/blob/255b9d950ba04859bc16fb77567808a77b736071/src/descriptor/checksum.rs#L94
+// Modified implementation from https://github.com/rust-bitcoin/rust-miniscript/blob/255b9d950ba04859bc16fb77567808a77b736071/src/descriptor/checksum.rs#L94
 
 // SPDX-License-Identifier: CC0-1.0
 
@@ -10,7 +10,6 @@
 //! [BIP-380]: <https://github.com/bitcoin/bips/blob/master/bip-0380.mediawiki>
 
 use core::convert::TryFrom;
-use core::iter::FromIterator;
 use core::{array, fmt};
 
 use bech32::primitives::checksum::PackedFe32;
@@ -150,20 +149,6 @@ impl Engine {
         }
     }
 
-    /// Inputs some data into the checksum engine.
-    ///
-    /// If this function returns an error, the `Engine` will be left in an indeterminate
-    /// state! It is safe to continue feeding it data but the result will not be meaningful.
-    pub fn input(&mut self, s: &str) -> Result<(), Error> {
-        for (pos, ch) in s.char_indices() {
-            if !(32..127).contains(&u32::from(ch)) {
-                return Err(Error::InvalidCharacter { ch, pos });
-            }
-        }
-        self.input_unchecked(s.as_bytes());
-        Ok(())
-    }
-
     fn input_unchecked(&mut self, s: &[u8]) {
         for ch in s {
             let pos = u64::from(CHAR_MAP[usize::from(*ch) - 32]);
@@ -202,10 +187,6 @@ impl Engine {
         chars
     }
 
-    /// Obtains the checksum of all the data thus-far fed to the engine.
-    pub fn checksum(&mut self) -> alloc::string::String {
-        alloc::string::String::from_iter(self.checksum_chars().iter().copied())
-    }
 }
 
 /// The Output Script Descriptor checksum algorithm, defined in [BIP-380].
@@ -226,129 +207,4 @@ impl Checksum for DescriptorChecksum {
     const TARGET_RESIDUE: u64 = 1;
 }
 
-/// A wrapper around a `fmt::Formatter` which provides checksumming ability.
-pub struct Formatter<'f, 'a> {
-    fmt: &'f mut fmt::Formatter<'a>,
-    eng: Engine,
-}
 
-impl<'f, 'a> Formatter<'f, 'a> {
-    /// Contructs a new `Formatter`, wrapping a given `fmt::Formatter`.
-    pub fn new(f: &'f mut fmt::Formatter<'a>) -> Self {
-        Formatter {
-            fmt: f,
-            eng: Engine::new(),
-        }
-    }
-
-    /// Writes the checksum into the underlying `fmt::Formatter`.
-    pub fn write_checksum(&mut self) -> fmt::Result {
-        use fmt::Write;
-        self.fmt.write_char('#')?;
-        for ch in self.eng.checksum_chars().iter().copied() {
-            self.fmt.write_char(ch)?;
-        }
-        Ok(())
-    }
-
-    /// Writes the checksum into the underlying `fmt::Formatter`, unless it has "alternate" display on.
-    pub fn write_checksum_if_not_alt(&mut self) -> fmt::Result {
-        if !self.fmt.alternate() {
-            self.write_checksum()?;
-        }
-        Ok(())
-    }
-}
-
-impl fmt::Write for Formatter<'_, '_> {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.fmt.write_str(s)?;
-        self.eng.input(s).map_err(|_| fmt::Error)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use core::str;
-
-    use super::*;
-
-    macro_rules! check_expected {
-        ($desc: expr, $checksum: expr) => {
-            let mut eng = Engine::new();
-            eng.input_unchecked($desc.as_bytes());
-            assert_eq!(eng.checksum(), $checksum);
-        };
-    }
-
-    #[test]
-    fn test_valid_descriptor_checksum() {
-        check_expected!(
-            "wpkh(tprv8ZgxMBicQKsPdpkqS7Eair4YxjcuuvDPNYmKX3sCniCf16tHEVrjjiSXEkFRnUH77yXc6ZcwHHcLNfjdi5qUvw3VDfgYiH5mNsj5izuiu2N/1/2/*)",
-            "tqz0nc62"
-        );
-        check_expected!(
-            "pkh(tpubD6NzVbkrYhZ4XHndKkuB8FifXm8r5FQHwrN6oZuWCz13qb93rtgKvD4PQsqC4HP4yhV3tA2fqr2RbY5mNXfM7RxXUoeABoDtsFUq2zJq6YK/44'/1'/0'/0/*)",
-            "lasegmfs"
-        );
-
-        // https://github.com/bitcoin/bitcoin/blob/7ae86b3c6845873ca96650fc69beb4ae5285c801/src/test/descriptor_tests.cpp#L352-L354
-        check_expected!(
-            "sh(multi(2,[00000000/111'/222]xprvA1RpRA33e1JQ7ifknakTFpgNXPmW2YvmhqLQYMmrj4xJXXWYpDPS3xz7iAxn8L39njGVyuoseXzU6rcxFLJ8HFsTjSyQbLYnMpCqE2VbFWc,xprv9uPDJpEQgRQfDcW7BkF7eTya6RPxXeJCqCJGHuCJ4GiRVLzkTXBAJMu2qaMWPrS7AANYqdq6vcBcBUdJCVVFceUvJFjaPdGZ2y9WACViL4L/0))",
-            "ggrsrxfy"
-        );
-        check_expected!(
-            "sh(multi(2,[00000000/111'/222]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL,xpub68NZiKmJWnxxS6aaHmn81bvJeTESw724CRDs6HbuccFQN9Ku14VQrADWgqbhhTHBaohPX4CjNLf9fq9MYo6oDaPPLPxSb7gwQN3ih19Zm4Y/0))",
-            "tjg09x5t"
-        );
-    }
-
-    #[test]
-    fn test_desc_checksum_invalid_character() {
-        let sparkle_heart = vec![240, 159, 146, 150];
-        let sparkle_heart = str::from_utf8(&sparkle_heart)
-            .unwrap()
-            .chars()
-            .next()
-            .unwrap();
-        let invalid_desc = format!(
-            "wpkh(tprv8ZgxMBicQKsPdpkqS7Eair4YxjcuuvDPNYmKX3sCniCf16tHEVrjjiSXEkFRnUH77yXc6ZcwHHcL{}fjdi5qUvw3VDfgYiH5mNsj5izuiu2N/1/2/*)",
-            sparkle_heart
-        );
-
-        assert_eq!(
-            verify_checksum(&invalid_desc).err().unwrap().to_string(),
-            format!("invalid character '{}' (position 85)", sparkle_heart)
-        );
-    }
-
-    #[test]
-    fn bip_380_test_vectors_checksum_and_character_set_valid() {
-        let tcs = vec![
-            "raw(deadbeef)#89f8spxm", // Valid checksum.
-            "raw(deadbeef)",          // No checksum.
-        ];
-        for tc in tcs {
-            if verify_checksum(tc).is_err() {
-                panic!("false negative: {}", tc)
-            }
-        }
-    }
-
-    #[test]
-    fn bip_380_test_vectors_checksum_and_character_set_invalid() {
-        let tcs = vec![
-            "raw(deadbeef)#",          // Missing checksum.
-            "raw(deadbeef)#89f8spxmx", // Too long checksum.
-            "raw(deadbeef)#89f8spx",   // Too short checksum.
-            "raw(dedbeef)#89f8spxm",   // Error in payload.
-            "raw(deadbeef)##9f8spxm",  // Error in checksum.
-            "raw(Ü)#00000000",         // Invalid characters in payload.
-        ];
-        for tc in tcs {
-            if verify_checksum(tc).is_ok() {
-                panic!("false positive: {}", tc)
-            }
-        }
-    }
-}
