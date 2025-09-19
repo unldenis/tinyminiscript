@@ -378,7 +378,7 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
                 {
                     properties |= PROPERTY_O;
                 }
-                if y_type.has_property(PROPERTY_N)
+                if x_type.has_property(PROPERTY_N)
                     || (x_type.has_property(PROPERTY_Z) && y_type.has_property(PROPERTY_N))
                 {
                     properties |= PROPERTY_N;

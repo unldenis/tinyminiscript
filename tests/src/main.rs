@@ -67,6 +67,7 @@ fn test_basic_scripts() {
         "sh(hash160(vvvvvvvvvvvvvvvvvvvv))",
         "sh(ripemd160(ccccccccccccccccccCCCCCCcccccccccccccc9c))",
         "tr(DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD,l:0)",
+        "sh(j:and_b(dv:0,su:0))"
     ];
 
     for (i, script) in scripts.iter().enumerate() {
