@@ -21,9 +21,9 @@ fuzz_target!(|data: &[u8]| {
         (Err(e), Ok(ctx)) => {
 
             let err  = format!("{:?}", e);
-            if err.contains("ExpectedChar(')')") {
-                return;
-            }
+            // if err.contains("ExpectedChar(')')") {
+            //     return;
+            // }
 
             println!("AST:{}", ctx.serialize());
             panic!("Invalid descriptor accepted: '{}' (expected error {:?})", script, e);
