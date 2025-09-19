@@ -390,21 +390,21 @@ impl<'a> ParserContext<'a> {
         let (_l_paren, _l_paren_column) = self.expect_token(context, "(")?;
         
         // Create uninitialized array
-        let mut asts: [core::mem::MaybeUninit<AST>; N] = unsafe { core::mem::MaybeUninit::uninit().assume_init() };
+        let mut asts: [AST; N] = unsafe {core::mem::zeroed()};
         
         // Fill first element
-        asts[0].write(parse_internal(self)?);
+        asts[0] = parse_internal(self)?;
         
         // Fill remaining elements
         for i in 1..N {
             let (_comma, _comma_column) = self.expect_token(context, ",")?;
-            asts[i].write(parse_internal(self)?);
+            asts[i] = parse_internal(self)?;
         }
 
         let (_r_paren, _r_paren_column) = self.expect_token(context, ")")?;
 
         // Convert to initialized array
-        Ok(unsafe { core::mem::transmute_copy(&asts) })
+        Ok(asts)
     }
 
     pub fn get_node(&self, index: NodeIndex) -> &AST {
