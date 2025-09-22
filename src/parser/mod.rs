@@ -527,7 +527,7 @@ pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
     if next_token.is_some() {
         let next_token = next_token.unwrap();
         if next_token.0.starts_with("#") {
-            if checksum::verify_checksum(next_token.0).is_err() {
+            if checksum::verify_checksum(input).is_err() {
                 return Err(ParseError::InvalidChecksum);
             }
         } else {

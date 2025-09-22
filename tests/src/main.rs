@@ -68,7 +68,8 @@ fn test_basic_scripts() {
         "sh(ripemd160(ccccccccccccccccccCCCCCCcccccccccccccc9c))",
         "tr(DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD,l:0)",
         "sh(j:and_b(dv:0,su:0))",
-        "sh(thresh(2,0,a:thresh(1,0,a:0,an:0,a:0)a:0))"
+        "sh(thresh(2,0,a:thresh(1,0,a:0,an:0,a:0)a:0))",
+        "sh(0)#7h0w2xvg"
     ];
 
     for (i, script) in scripts.iter().enumerate() {
