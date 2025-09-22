@@ -104,11 +104,12 @@ impl Serializer {
                 self.output.push_str(")");
             }
             Fragment::Thresh { k, xs } => {
-                self.output.push_str(&format!("thresh({}, [", k));
+                self.output.push_str(&format!("thresh({}", k));
                 for x in xs {
+                    self.output.push_str(",");
                     self.serialize_node(ctx, ctx.get_node(*x));
                 }
-                self.output.push_str("])");
+                self.output.push_str(")");
             }
             Fragment::Multi { k, keys } => {
                 self.output.push_str(&format!("multi({}", k));

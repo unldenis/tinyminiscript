@@ -978,13 +978,14 @@ fn parse_internal<'a>(
 
             let estimated_tokens = k as usize;
             let mut xs = Vec::with_capacity(estimated_tokens);
+
             while let Some((token, _column)) = ctx.peek_token() {
                 if token == ")" {
                     break;
-                } else if token == "," {
-                    ctx.next_token("thresh")?;
                 }
-                    let x = parse_internal(ctx)?;
+                ctx.expect_token("thresh", ",")?;
+
+                let x = parse_internal(ctx)?;
                 xs.push(ctx.add_node(x));
             }
 
