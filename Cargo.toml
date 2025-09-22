@@ -11,7 +11,7 @@ categories = ["cryptography", "parsing"]
 readme = "README.md"
 
 [dependencies]
-bitcoin = { version = "0.32.7", default-features = false }
+bitcoin = { version = "0.32.7", default-features = true }
 
 [lib]
 crate-type = ["lib"]
