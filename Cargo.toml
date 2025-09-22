@@ -21,3 +21,7 @@ default = ["debug", "satisfy"]
 # Enable Debug trait implementations for error types
 debug = []
 satisfy = []
+kani = []
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)', 'cfg(fuzzing)'] }
