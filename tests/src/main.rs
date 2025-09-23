@@ -11,6 +11,7 @@ fn main() {
     test_key_derivation();
     test_script_building();
     test_miniscript();
+    test_diffs();
 
     println!("\n\n\n✅ All tests completed!");
 }
@@ -177,6 +178,48 @@ fn test_miniscript() {
             }
             Err(e) => println!("❌ Error building miniscript descriptor: {:?}", e),
         }
+    }
+}
+
+fn test_diffs() {
+    println!("\n\n🔍 Testing Diffs");
+    println!("-------------------------");
+
+    let scripts = vec![
+        "pk(021607130607051209051304060307030704205091903060909060415090215072)"
+    ];
+
+
+
+    for (i, script) in scripts.iter().enumerate() {
+        println!("\n\n🔍 Diff Test {}: {}", i + 1, script);
+        println!("{}", "─".repeat(50));
+
+        use miniscript::Descriptor;
+        use miniscript::bitcoin;
+        use std::str::FromStr;
+        match Descriptor::<bitcoin::PublicKey>::from_str(script) {
+            Ok(desc) => {
+                println!("✅ Miniscript descriptor built successfully");
+                println!("📜 Miniscript descriptor: {}", desc);
+                let ms_script = desc.explicit_script().unwrap().to_asm_string();
+                println!("📜 Miniscript script: {}", ms_script);
+            }
+            Err(e) => println!("❌ Error building miniscript descriptor: {:?}", e),
+        }
+
+        let ctx = tinyminiscript::parse_script(script);
+        if let Err(e) = ctx {
+            println!("❌ Error building tinyminiscript descriptor: {:?}", e);
+        } else {
+            let ctx = ctx.unwrap();
+            println!("✅ TinyMiniscript descriptor built successfully");
+            println!("📜 TinyMiniscript descriptor: {}", ctx.serialize());
+            let ts_script = ctx.build_script().unwrap().to_asm_string();
+            println!("📜 TinyMiniscript script: {}", ts_script);
+
+        }
+        
     }
 }
 

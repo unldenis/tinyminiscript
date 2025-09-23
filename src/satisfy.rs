@@ -536,5 +536,14 @@ pub(crate) fn satisfy<'a>(
         Fragment::RawTr { key, inner } => {
             return Err(SatisfyError::TaprootNotSupported);
         },
+        Fragment::RawPk { key } => {
+            let (sig, avail) = satisfier
+            .sign(key)
+            .ok_or(SatisfyError::MissingSignature(key.identifier()))?;
+            Ok(Satisfactions::new(
+                zero(),
+                witness(sig.as_slice()).with_sig().set_available(avail),
+            ))
+        },
     }
 }

@@ -42,7 +42,7 @@ pub(crate) fn build_address<'a>(
 ) -> Result<Address, ScriptBuilderError<'a>> {
     match ctx.descriptor() {
         Descriptor::Bare => Err(ScriptBuilderError::NoAddressForm),
-        Descriptor::Pkh => {
+        Descriptor::Pkh | Descriptor::Pk => {
             let mut key = None;
             ctx.iterate_keys(|k| key = Some(k.clone()));
             let key = key.expect("One key is always present");
@@ -352,6 +352,15 @@ impl<'a> ScriptBuilder<'a> {
                     panic!("Taproot script without inner is not supported");
                 }
             },
+            Fragment::RawPk { key } => {
+                let key = match key.as_definite_key() {
+                    Some(k) => k,
+                    None => return Err(ScriptBuilderError::NonDefiniteKey(key.identifier())),
+                };
+                builder = key.push_to_script(builder);
+                builder = builder.push_opcode(opcodes::all::OP_CHECKSIG);
+                Ok(builder)
+            }
         }
     }
 }

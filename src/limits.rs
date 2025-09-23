@@ -82,6 +82,7 @@ pub fn check_script_size(descriptor: &Descriptor, script_size: usize) -> Result<
             }
         }
         Descriptor::Tr => {}
+        Descriptor::Pk => {}
     }
     Ok(())
 }

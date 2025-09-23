@@ -19,6 +19,9 @@ pub enum Descriptor {
 
     /// Pay-to-Taproot
     Tr,
+
+    /// Raw public key
+    Pk,
 }
 
 impl Default for Descriptor {
@@ -39,6 +42,7 @@ impl<'a> TryFrom<&'a str> for Descriptor {
             "wpkh" => Ok(Descriptor::Wpkh),
             "wsh" => Ok(Descriptor::Wsh),
             "tr" => Ok(Descriptor::Tr),
+            "pk" => Ok(Descriptor::Pk),
             _ => Err(InvalidDescriptor),
         }
     }
@@ -54,6 +58,7 @@ impl core::fmt::Debug for Descriptor {
             Descriptor::Wpkh => write!(f, "wpkh"),
             Descriptor::Wsh => write!(f, "wsh"),
             Descriptor::Tr => write!(f, "tr"),
+            Descriptor::Pk => write!(f, "pk"),
         }
     }
 }
@@ -85,6 +90,7 @@ impl DescriptorValidator {
                             }
                         }
                         Descriptor::Tr => {}
+                        Descriptor::Pk => {}
                     }
                 }
                 Fragment::Multi { keys, .. } => {

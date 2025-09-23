@@ -171,6 +171,10 @@ pub enum Fragment {
     RawTr {
         key: KeyToken,
         inner: Option<NodeIndex>,
+    },
+
+    RawPk {
+        key: KeyToken,
     }
 }
 
@@ -663,6 +667,16 @@ fn parse_top_internal<'a>(
             Ok(AST {
                 position: column,
                 fragment: Fragment::RawTr { key, inner: None },
+            })
+        }
+        Descriptor::Pk => {
+            ctx.next_token("parse_top_internal")?; // Advance past the key
+
+            let key = keys::parse_key((token, column), &ctx.inner_descriptor)?;
+
+            Ok(AST {
+                position: column,
+                fragment: Fragment::RawPk { key },
             })
         }
         _ => {

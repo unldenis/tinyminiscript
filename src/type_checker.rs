@@ -844,33 +844,7 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
                     }
                     IdentityType::C => {
                         // X is K
-                        if x_type.base_type() != MINISCRIPT_TYPE_K {
-                            return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
-                                reason: "c:X: X must be type K (Key)",
-                                found: x_type.base_type(),
-                                position: node.position,
-                            });
-                        }
-
-                        // properties: o=oX; n=nX; d=dX; u
-                        let mut properties = 0;
-                        if x_type.has_property(PROPERTY_O) {
-                            properties |= PROPERTY_O;
-                        }
-                        if x_type.has_property(PROPERTY_N) {
-                            properties |= PROPERTY_N;
-                        }
-                        if x_type.has_property(PROPERTY_D) {
-                            properties |= PROPERTY_D;
-                        }
-                        properties |= PROPERTY_U;
-                        Ok(TypeInfo::new(
-                            MINISCRIPT_TYPE_B,
-                            properties,
-                            x_type.pk_cost + 1,
-                            true,
-                            x_type.tree_height + 1,
-                        ))
+                        return type_info_for_identity_c(node.position, &x_type);
                     }
 
                     IdentityType::D => {
@@ -1050,6 +1024,41 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
                     ))
                 }
             },
+            Fragment::RawPk { key } => {
+                type_info_for_identity_c(node.position, &TYPE_PKK)
+            }
         }
     }
+}
+
+
+fn type_info_for_identity_c(position: Position, x_type: &TypeInfo) -> Result<TypeInfo, CorrectnessPropertiesVisitorError> {
+    // X is K
+    if x_type.base_type() != MINISCRIPT_TYPE_K {
+        return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
+            reason: "c:X: X must be type K (Key)",
+            found: x_type.base_type(),
+            position: position,
+        });
+    }
+
+    // properties: o=oX; n=nX; d=dX; u
+    let mut properties = 0;
+    if x_type.has_property(PROPERTY_O) {
+        properties |= PROPERTY_O;
+    }
+    if x_type.has_property(PROPERTY_N) {
+        properties |= PROPERTY_N;
+    }
+    if x_type.has_property(PROPERTY_D) {
+        properties |= PROPERTY_D;
+    }
+    properties |= PROPERTY_U;
+    Ok(TypeInfo::new(
+        MINISCRIPT_TYPE_B,
+        properties,
+        x_type.pk_cost + 1,
+        true,
+        x_type.tree_height + 1,
+    ))
 }

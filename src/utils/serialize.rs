@@ -154,6 +154,9 @@ impl Serializer {
 
                 }
             }
+            Fragment::RawPk { key } => {
+                self.output.push_str(&format!("{:?}", key));
+            }
         }
     }
 }
