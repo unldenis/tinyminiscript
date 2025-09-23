@@ -1,0 +1,12 @@
+[package]
+name = "afl"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+afl = "*"
+miniscript = "12.3.5"
+
+
+[dependencies.tinyminiscript]
+path = ".."
