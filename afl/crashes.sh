@@ -1,0 +1,1 @@
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_SKIP_CPUFREQ=true AFL_AUTORESUME=1 cargo afl run ../target/debug/afl < out/default/crashes.2025-09-23-14:43:17/id:000000,sig:06,src:000922,time:8315083,execs:144040534,op:havoc,rep:3
