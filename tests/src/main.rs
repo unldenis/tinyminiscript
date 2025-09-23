@@ -186,7 +186,10 @@ fn test_diffs() {
     println!("-------------------------");
 
     let scripts = vec![
-        "pk(021607130607051209051304060307030704205091903060909060415090215072)"
+        "pk(021607130607051209051304060307030704205091903060909060415090215072)",
+        "sh(wsh(and_n(ljjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj:pk(020513060604181215120913141616141318171817121906020906090318181704),pk(020606161514070203071418190717181303181315151817150717021304131309))))",
+        "sh(wsh(and_n(lnnnntvunnntvntvunuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuulnlll:pk(020513121919060603051713070408070204050605080413191317319040440514),pk(020612030408191812180952031904040416070406030505021906020517070909))))",
+        "tr(020202020202020212131610202020202121316121618171818121715181919190)"
     ];
 
 
@@ -202,8 +205,12 @@ fn test_diffs() {
             Ok(desc) => {
                 println!("✅ Miniscript descriptor built successfully");
                 println!("📜 Miniscript descriptor: {}", desc);
-                let ms_script = desc.explicit_script().unwrap().to_asm_string();
-                println!("📜 Miniscript script: {}", ms_script);
+                let ms_script = desc.explicit_script();
+                if let Ok(script) = ms_script {
+                    println!("📜 Miniscript script: {}", script.to_asm_string());
+                } else {
+                    println!("❌ Miniscript script is None");
+                }
             }
             Err(e) => println!("❌ Error building miniscript descriptor: {:?}", e),
         }
@@ -215,8 +222,12 @@ fn test_diffs() {
             let ctx = ctx.unwrap();
             println!("✅ TinyMiniscript descriptor built successfully");
             println!("📜 TinyMiniscript descriptor: {}", ctx.serialize());
-            let ts_script = ctx.build_script().unwrap().to_asm_string();
-            println!("📜 TinyMiniscript script: {}", ts_script);
+            let ts_script = ctx.build_script();
+            if let Ok(script) = ts_script {
+                println!("📜 TinyMiniscript script: {}", script.to_asm_string());
+            } else {
+                println!("❌ TinyMiniscript script is None");
+            }
 
         }
         

@@ -128,9 +128,7 @@ pub fn parse_script<'a>(script: &'a str) -> Result<ParserContext<'a>, Miniscript
 
     // Check the script size
     limits::check_script_size(
-        &ctx.top_level_descriptor
-            .clone()
-            .expect("Top level descriptor must be set"),
+        &ctx.descriptor(),
         type_info.pk_cost,
     )
     .map_err(MiniscriptError::LimitsError)?;
