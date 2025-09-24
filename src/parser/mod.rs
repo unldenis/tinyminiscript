@@ -1228,3 +1228,16 @@ fn parse_bool<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>> {
         }
     }
 }
+
+
+
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    #[kani::proof]
+    pub fn check_something() {
+        let ctx = parse("wsh(or_d(pk({}),older(12960)))");
+        assert!(ctx.is_ok());
+    }
+}
