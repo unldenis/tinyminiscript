@@ -24,6 +24,7 @@ pub enum ScriptBuilderError<'a> {
     NonDefiniteKey(String),
 
     NoAddressForm,
+    TaprootScriptWithoutInner,
 }
 
 pub(crate) fn build_script<'a>(
@@ -349,7 +350,7 @@ impl<'a> ScriptBuilder<'a> {
                     let builder = self.build_fragment(ctx, ctx.get_node(*inner), builder)?;
                     Ok(builder)
                 } else {
-                    panic!("Taproot script without inner is not supported");
+                    return Err(ScriptBuilderError::TaprootScriptWithoutInner);
                 }
             },
             Fragment::RawPk { key } => {

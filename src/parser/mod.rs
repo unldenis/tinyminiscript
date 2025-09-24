@@ -263,6 +263,11 @@ pub enum ParseError<'a> {
         key: &'a str,
         position: Position,
     },
+    InvalidXOnlyKeyLength {
+        key: &'a str,
+        position: Position,
+        found: usize,
+    },
     UnexpectedTrailingToken {
         found: (&'a str, Position),
     },

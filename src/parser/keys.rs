@@ -353,22 +353,28 @@ pub fn parse_key<'a>(
     // Get the key type based on the inner descriptor
     let key = match descriptor {
         Descriptor::Tr => {
+
+            // rust miniscript does not parse directly to xonly key
+            // so we need to parse to pubkey and then convert to xonly key
+
             // Fix: https://github.com/unldenis/tinyminiscript/issues/40 
             // pubkey string should be 66 or 130 digits long, got: 64
             if token.0.len() != 66 && token.0.len() != 130 {
-                return Err(ParseError::InvalidXOnlyKey {
+                return Err(ParseError::InvalidXOnlyKeyLength {
                     key: token.0,
                     position: token.1,
+                    found: token.0.len(),
                 });
             }
 
-            let xonly_key = bitcoin::XOnlyPublicKey::from_str(token.0).map_err(|_| {
-                ParseError::InvalidXOnlyKey {
+            let pub_key = bitcoin::PublicKey::from_str(token.0).map_err(|_| {
+                ParseError::InvalidKey {
                     key: token.0,
                     position: token.1,
+                    inner: "Invalid bitcoin::PublicKey key",
                 }
             })?;
-            KeyTokenInner::XOnlyPublicKey(xonly_key)
+            KeyTokenInner::XOnlyPublicKey(pub_key.into())
         }
         _ => {
             let pub_key =
@@ -395,5 +401,12 @@ mod test {
         dbg!(&key);
         let derived = key.derive(22).unwrap();
         dbg!(&derived);
+    }
+
+    #[test]
+    fn test_parse_xonly_key() {
+        let key = "020202020202020212131610202020202121316121618171818121715181919190";
+        let key = parse_key((key, 0), &Descriptor::Tr).unwrap();
+        dbg!(&key);
     }
 }
