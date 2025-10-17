@@ -151,7 +151,6 @@ impl Serializer {
                 if let Some(inner) = inner {
                     self.output.push_str(",");
                     self.serialize_node(ctx, ctx.get_node(*inner));
-
                 }
             }
             Fragment::RawPk { key } => {

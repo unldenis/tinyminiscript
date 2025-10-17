@@ -1,4 +1,4 @@
-use crate::parser::{AST, ASTVisitor, Fragment, ParserContext, Position};
+use crate::parser::{Fragment, ParserContext, Position};
 
 /// Script descriptor
 #[derive(Clone, PartialEq)]
@@ -28,6 +28,12 @@ impl Default for Descriptor {
     #[inline]
     fn default() -> Self {
         Descriptor::Bare
+    }
+}
+
+impl Descriptor {
+    pub fn is_witness(&self) -> bool {
+        matches!(self, Descriptor::Wsh | Descriptor::Wpkh)
     }
 }
 
@@ -78,19 +84,10 @@ impl DescriptorValidator {
         for ele in ctx.nodes.iter() {
             match &ele.fragment {
                 Fragment::PkK { key } | Fragment::PkH { key } => {
-                    match &descriptor {
-                        Descriptor::Bare => {}
-                        Descriptor::Pkh => {}
-                        Descriptor::Sh => {}
-                        Descriptor::Wpkh | Descriptor::Wsh => {
-                            if !key.is_compressed() {
-                                return Err(DescriptorVisitorError::PublicKeyNotCompressed {
-                                    position: ele.position,
-                                });
-                            }
-                        }
-                        Descriptor::Tr => {}
-                        Descriptor::Pk => {}
+                    if descriptor.is_witness() && !key.is_compressed() {
+                        return Err(DescriptorVisitorError::PublicKeyNotCompressed {
+                            position: ele.position,
+                        });
                     }
                 }
                 Fragment::Multi { keys, .. } => {
@@ -114,16 +111,10 @@ impl DescriptorValidator {
                     }
                 }
                 Fragment::RawPkH { key } => {
-   
-                    match &descriptor {
-                        Descriptor::Wpkh => {
-                            if !key.is_compressed() {
-                                return Err(DescriptorVisitorError::PublicKeyNotCompressed {
-                                    position: ele.position,
-                                });
-                            }
-                        }
-                        _ => {}
+                    if descriptor == Descriptor::Wpkh && !key.is_compressed() {
+                        return Err(DescriptorVisitorError::PublicKeyNotCompressed {
+                            position: ele.position,
+                        });
                     }
                 }
                 _ => {

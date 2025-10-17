@@ -29,7 +29,6 @@ impl KeyToken {
         Self { inner }
     }
 
-    #[inline]
     pub fn is_compressed(&self) -> bool {
         match &self.inner {
             KeyTokenInner::PublicKey(pk) => pk.compressed,
@@ -38,7 +37,6 @@ impl KeyToken {
         }
     }
 
-    #[inline]
     pub fn identifier(&self) -> String {
         match &self.inner {
             KeyTokenInner::PublicKey(pk) => pk.to_string(),
@@ -47,7 +45,6 @@ impl KeyToken {
         }
     }
 
-    #[inline]
     pub fn as_definite_key(&self) -> Option<DefiniteKeyToken> {
         match &self.inner {
             KeyTokenInner::PublicKey(pk) => Some(DefiniteKeyToken::PublicKey(*pk)),
@@ -56,7 +53,6 @@ impl KeyToken {
         }
     }
 
-    #[inline]
     pub fn derive(&self, index: u32) -> Result<Self, String> {
         match &self.inner {
             KeyTokenInner::ExtendedKey(ext) => {
@@ -96,7 +92,6 @@ pub enum DefiniteKeyToken {
 }
 
 impl DefiniteKeyToken {
-    #[inline]
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
             DefiniteKeyToken::PublicKey(pk) => pk.to_bytes().to_vec(),
@@ -104,7 +99,6 @@ impl DefiniteKeyToken {
         }
     }
 
-    #[inline]
     pub fn push_to_script(&self, builder: Builder) -> Builder {
         match self {
             DefiniteKeyToken::PublicKey(pk) => builder.push_key(pk),
@@ -112,7 +106,6 @@ impl DefiniteKeyToken {
         }
     }
 
-    #[inline]
     pub fn pubkey_hash(&self) -> PubkeyHash {
         match self {
             DefiniteKeyToken::PublicKey(pk) => pk.pubkey_hash(),
@@ -172,7 +165,6 @@ impl ExtendedKey {
         self.raw.clone()
     }
 
-    #[inline]
     pub fn derive(&self, index: u32) -> Result<DefiniteKeyToken, String> {
         let secp = secp256k1::Secp256k1::new();
 
@@ -353,11 +345,10 @@ pub fn parse_key<'a>(
     // Get the key type based on the inner descriptor
     let key = match descriptor {
         Descriptor::Tr => {
-
             // rust miniscript does not parse directly to xonly key
             // so we need to parse to pubkey and then convert to xonly key
 
-            // Fix: https://github.com/unldenis/tinyminiscript/issues/40 
+            // Fix: https://github.com/unldenis/tinyminiscript/issues/40
             // pubkey string should be 66 or 130 digits long, got: 64
             if token.0.len() != 66 && token.0.len() != 130 {
                 return Err(ParseError::InvalidXOnlyKeyLength {
@@ -367,13 +358,12 @@ pub fn parse_key<'a>(
                 });
             }
 
-            let pub_key = bitcoin::PublicKey::from_str(token.0).map_err(|_| {
-                ParseError::InvalidKey {
+            let pub_key =
+                bitcoin::PublicKey::from_str(token.0).map_err(|_| ParseError::InvalidKey {
                     key: token.0,
                     position: token.1,
                     inner: "Invalid bitcoin::PublicKey key",
-                }
-            })?;
+                })?;
             KeyTokenInner::XOnlyPublicKey(pub_key.into())
         }
         _ => {

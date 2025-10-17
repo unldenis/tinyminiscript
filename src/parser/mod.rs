@@ -1,7 +1,7 @@
 pub mod keys;
 
-use core::str::FromStr;
 use alloc::string::String;
+use core::str::FromStr;
 
 use bitcoin::{Address, Network, ScriptBuf};
 
@@ -175,7 +175,7 @@ pub enum Fragment {
 
     RawPk {
         key: KeyToken,
-    }
+    },
 }
 
 #[derive(PartialEq, Clone)]
@@ -206,7 +206,6 @@ impl core::fmt::Debug for IdentityType {
 }
 
 // Optimized tokenization using string slices instead of owned strings
-#[inline]
 fn split_string_with_columns<'a, F>(s: &'a str, is_separator: F) -> Vec<(&'a str, Position)>
 where
     F: Fn(char) -> bool,
@@ -328,9 +327,7 @@ impl<'a> ParserContext<'a> {
             self.current_token += 1;
             Ok(token)
         } else {
-            Err(ParseError::UnexpectedEof {
-                context,
-            })
+            Err(ParseError::UnexpectedEof { context })
         }
     }
 
@@ -384,7 +381,10 @@ impl<'a> ParserContext<'a> {
         index
     }
 
-    fn parse_inner_paren(&mut self, context: &'static str) -> Result<(&'a str, Position), ParseError<'a>> {
+    fn parse_inner_paren(
+        &mut self,
+        context: &'static str,
+    ) -> Result<(&'a str, Position), ParseError<'a>> {
         self.next_token(context)?; // Advance past the fragment name
 
         let (_l_paren, _l_paren_column) = self.expect_token(context, "(")?;
@@ -393,17 +393,20 @@ impl<'a> ParserContext<'a> {
         Ok(inner)
     }
 
-    fn parse_call<const N: usize>(&mut self, context: &'static str) -> Result<[AST; N], ParseError<'a>> {
+    fn parse_call<const N: usize>(
+        &mut self,
+        context: &'static str,
+    ) -> Result<[AST; N], ParseError<'a>> {
         self.next_token(context)?; // Advance past the fragment name
 
         let (_l_paren, _l_paren_column) = self.expect_token(context, "(")?;
-        
+
         // Create uninitialized array
-        let mut asts: [AST; N] = unsafe {core::mem::zeroed()};
-        
+        let mut asts: [AST; N] = unsafe { core::mem::zeroed() };
+
         // Fill first element
         asts[0] = parse_internal(self)?;
-        
+
         // Fill remaining elements
         for i in 1..N {
             let (_comma, _comma_column) = self.expect_token(context, ",")?;
@@ -425,7 +428,10 @@ impl<'a> ParserContext<'a> {
     }
 
     #[cfg(feature = "satisfy")]
-    pub fn satisfy(&self, satisfier: &dyn crate::satisfy::Satisfier) -> Result<crate::satisfy::Satisfactions, crate::satisfy::SatisfyError> {
+    pub fn satisfy(
+        &self,
+        satisfier: &dyn crate::satisfy::Satisfier,
+    ) -> Result<crate::satisfy::Satisfactions, crate::satisfy::SatisfyError> {
         crate::satisfy::satisfy(self, satisfier, &self.get_root())
     }
 
@@ -618,7 +624,7 @@ fn parse_sh_descriptor<'a>(
 }
 
 fn is_invalid_number(n: &str) -> bool {
-    n.is_empty() || !n.chars().next().unwrap().is_ascii_digit() || n.starts_with('0')
+    n.is_empty() || n.chars().next().map_or(true, |c| !c.is_ascii_digit()) || n.starts_with('0')
 }
 
 fn parse_hex_to_bytes<'a, const N: usize>(
@@ -634,12 +640,10 @@ fn parse_hex_to_bytes<'a, const N: usize>(
     Ok(bytes)
 }
 
-fn parse_top_internal<'a>(
-    ctx: &mut ParserContext<'a>,
-) -> Result<AST, ParseError<'a>> {
-    let (token, column) = ctx
-        .peek_token()
-        .ok_or(ParseError::UnexpectedEof { context: "parse_top_internal" })?;
+fn parse_top_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>> {
+    let (token, column) = ctx.peek_token().ok_or(ParseError::UnexpectedEof {
+        context: "parse_top_internal",
+    })?;
     match ctx.descriptor() {
         Descriptor::Pkh | Descriptor::Wpkh => {
             ctx.next_token("parse_top_internal")?; // Advance past the key
@@ -656,18 +660,18 @@ fn parse_top_internal<'a>(
 
             let key = keys::parse_key((token, column), &ctx.inner_descriptor)?;
 
-
             if let Some((next_token, next_column)) = ctx.peek_token() {
                 if next_token == "," {
-
                     ctx.next_token("parse_top_internal")?; // Advance past the comma
                     let inner = parse_internal(ctx)?;
                     return Ok(AST {
                         position: column,
-                        fragment: Fragment::RawTr { key, inner: Some(ctx.add_node(inner)) },
+                        fragment: Fragment::RawTr {
+                            key,
+                            inner: Some(ctx.add_node(inner)),
+                        },
                     });
                 }
-
             }
             Ok(AST {
                 position: column,
@@ -688,11 +692,8 @@ fn parse_top_internal<'a>(
             return parse_internal(ctx);
         }
     }
-
 }
-fn parse_internal<'a>(
-    ctx: &mut ParserContext<'a>,
-) -> Result<AST, ParseError<'a>> {
+fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>> {
     let (token, column) = ctx
         .peek_token()
         .ok_or(ParseError::UnexpectedEof { context: "parse" })?;
@@ -721,7 +722,7 @@ fn parse_internal<'a>(
             })
         }
         "pk" => {
-            // pk(key) = c:pk_k(key)    
+            // pk(key) = c:pk_k(key)
             let (key, key_column) = ctx.parse_inner_paren("pk")?;
 
             // Get the key type based on the inner descriptor
@@ -743,7 +744,7 @@ fn parse_internal<'a>(
             Ok(ast)
         }
         "pkh" => {
-            // pkh(key) = c:pk_h(key)   
+            // pkh(key) = c:pk_h(key)
             let key_token = ctx.parse_inner_paren("pkh")?;
 
             // Get the key type based on the inner descriptor
@@ -979,8 +980,7 @@ fn parse_internal<'a>(
         "thresh" => {
             ctx.next_token("thresh")?; // Advance past "thresh"
             let (_l_paren, _l_paren_column) = ctx.expect_token("thresh", "(")?;
-            let (k, k_column) = ctx
-                .next_token("thresh")?;
+            let (k, k_column) = ctx.next_token("thresh")?;
 
             // Check if the number starts with a digit 1-9
             if is_invalid_number(&k) {
@@ -1019,8 +1019,7 @@ fn parse_internal<'a>(
         "multi" => {
             ctx.next_token("multi")?; // Advance past "multi"
             let (_l_paren, _l_paren_column) = ctx.expect_token("multi", "(")?;
-            let (k, k_column) = ctx
-                .next_token("multi")?;
+            let (k, k_column) = ctx.next_token("multi")?;
             let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
                 expected: "i32",
                 found: (k, k_column),
@@ -1034,16 +1033,14 @@ fn parse_internal<'a>(
                 } else if token == "," {
                     ctx.next_token("multi")?;
                 }
-                let (key, key_column) = ctx
-                    .next_token("multi")?;
+                let (key, key_column) = ctx.next_token("multi")?;
 
-                let key = bitcoin::PublicKey::from_str(key).map_err(|e| {
-                    ParseError::InvalidKey {
+                let key =
+                    bitcoin::PublicKey::from_str(key).map_err(|e| ParseError::InvalidKey {
                         key,
                         position: key_column,
                         inner: "Invalid bitcoin::PublicKey key",
-                    }
-                })?;
+                    })?;
                 keys.push(KeyToken::new(KeyTokenInner::PublicKey(key)));
             }
 
@@ -1058,8 +1055,7 @@ fn parse_internal<'a>(
         "multi_a" => {
             ctx.next_token("multi_a")?; // Advance past "multi_a"
             let (_l_paren, _l_paren_column) = ctx.expect_token("multi_a", "(")?;
-            let (k, k_column) = ctx
-                .next_token("multi_a")?;
+            let (k, k_column) = ctx.next_token("multi_a")?;
             let k = k.parse::<i32>().map_err(|_| ParseError::UnexpectedToken {
                 expected: "i32",
                 found: (k, k_column),
@@ -1073,8 +1069,7 @@ fn parse_internal<'a>(
                 } else if token == "," {
                     ctx.next_token("multi_a")?;
                 }
-                let (key, key_column) = ctx
-                    .next_token("multi_a")?;
+                let (key, key_column) = ctx.next_token("multi_a")?;
                 let key = bitcoin::XOnlyPublicKey::from_str(key).map_err(|e| {
                     ParseError::InvalidXOnlyKey {
                         key,
@@ -1197,7 +1192,6 @@ fn parse_internal<'a>(
             return parse_bool(ctx);
         }
     }
-
 }
 
 fn parse_bool<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>> {

@@ -127,11 +127,8 @@ pub fn parse_script<'a>(script: &'a str) -> Result<ParserContext<'a>, Miniscript
     limits::check_recursion_depth(type_info.tree_height).map_err(MiniscriptError::LimitsError)?;
 
     // Check the script size
-    limits::check_script_size(
-        &ctx.descriptor(),
-        type_info.pk_cost,
-    )
-    .map_err(MiniscriptError::LimitsError)?;
+    limits::check_script_size(&ctx.descriptor(), type_info.pk_cost)
+        .map_err(MiniscriptError::LimitsError)?;
 
     Ok(ctx)
 }

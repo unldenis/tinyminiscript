@@ -186,7 +186,6 @@ impl Engine {
         }
         chars
     }
-
 }
 
 /// The Output Script Descriptor checksum algorithm, defined in [BIP-380].
@@ -206,5 +205,3 @@ impl Checksum for DescriptorChecksum {
     const GENERATOR_SH: [u64; 5] = GEN;
     const TARGET_RESIDUE: u64 = 1;
 }
-
-

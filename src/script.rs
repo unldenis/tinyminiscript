@@ -352,7 +352,7 @@ impl<'a> ScriptBuilder<'a> {
                 } else {
                     return Err(ScriptBuilderError::TaprootScriptWithoutInner);
                 }
-            },
+            }
             Fragment::RawPk { key } => {
                 let key = match key.as_definite_key() {
                     Some(k) => k,

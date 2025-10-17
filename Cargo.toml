@@ -1,6 +1,6 @@
 [package]
 name = "tinyminiscript"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2024"
 
 description = "A lightweight, no_std-compatible miniscript parser and validator for Bitcoin"

@@ -132,13 +132,7 @@ const TYPE_FALSE: TypeInfo = TypeInfo::new(
     0,
 );
 
-const TYPE_TRUE : TypeInfo = TypeInfo::new(
-    MINISCRIPT_TYPE_B,
-    PROPERTY_Z | PROPERTY_U,
-    1,
-    false,
-    0,
-);
+const TYPE_TRUE: TypeInfo = TypeInfo::new(MINISCRIPT_TYPE_B, PROPERTY_Z | PROPERTY_U, 1, false, 0);
 
 const TYPE_PKK: TypeInfo = TypeInfo::new(
     MINISCRIPT_TYPE_K,
@@ -156,7 +150,7 @@ const TYPE_PKH: TypeInfo = TypeInfo::new(
     0,
 );
 
-const TYPE_SHA256 : TypeInfo = TypeInfo::new(
+const TYPE_SHA256: TypeInfo = TypeInfo::new(
     MINISCRIPT_TYPE_B,
     PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
     33 + 6,
@@ -164,7 +158,7 @@ const TYPE_SHA256 : TypeInfo = TypeInfo::new(
     0,
 );
 
-const TYPE_HASH256 : TypeInfo = TypeInfo::new(
+const TYPE_HASH256: TypeInfo = TypeInfo::new(
     MINISCRIPT_TYPE_B,
     PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
     33 + 6,
@@ -172,7 +166,7 @@ const TYPE_HASH256 : TypeInfo = TypeInfo::new(
     0,
 );
 
-const TYPE_RIPEMD160 : TypeInfo = TypeInfo::new(
+const TYPE_RIPEMD160: TypeInfo = TypeInfo::new(
     MINISCRIPT_TYPE_B,
     PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
     21 + 6,
@@ -180,14 +174,13 @@ const TYPE_RIPEMD160 : TypeInfo = TypeInfo::new(
     0,
 );
 
-const TYPE_HASH160 : TypeInfo = TypeInfo::new(
+const TYPE_HASH160: TypeInfo = TypeInfo::new(
     MINISCRIPT_TYPE_B,
     PROPERTY_O | PROPERTY_N | PROPERTY_D | PROPERTY_U,
     21 + 6,
     true,
     0,
 );
-
 
 impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
     type Error = CorrectnessPropertiesVisitorError;
@@ -1002,37 +995,24 @@ impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
                 }
                 Ok(inner_type)
             }
-            Fragment::RawPkH { key } => Ok(TypeInfo::new(
-                MINISCRIPT_TYPE_B,
-                0,
-                0,
-                false,
-                0,
-            )),
+            Fragment::RawPkH { key } => Ok(TypeInfo::new(MINISCRIPT_TYPE_B, 0, 0, false, 0)),
             Fragment::RawTr { key, inner } => {
-
                 if let Some(inner) = inner {
                     let inner_type = self.visit_ast_by_index(ctx, *inner)?;
                     Ok(inner_type)
                 } else {
-                    Ok(TypeInfo::new(
-                        MINISCRIPT_TYPE_B,
-                        0,
-                        0,
-                        false,
-                        0,
-                    ))
+                    Ok(TypeInfo::new(MINISCRIPT_TYPE_B, 0, 0, false, 0))
                 }
-            },
-            Fragment::RawPk { key } => {
-                type_info_for_identity_c(node.position, &TYPE_PKK)
             }
+            Fragment::RawPk { key } => type_info_for_identity_c(node.position, &TYPE_PKK),
         }
     }
 }
 
-
-fn type_info_for_identity_c(position: Position, x_type: &TypeInfo) -> Result<TypeInfo, CorrectnessPropertiesVisitorError> {
+fn type_info_for_identity_c(
+    position: Position,
+    x_type: &TypeInfo,
+) -> Result<TypeInfo, CorrectnessPropertiesVisitorError> {
     // X is K
     if x_type.base_type() != MINISCRIPT_TYPE_K {
         return Err(CorrectnessPropertiesVisitorError::UnexpectedType {
