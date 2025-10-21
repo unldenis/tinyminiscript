@@ -5,8 +5,9 @@ use bitcoin::{
 };
 
 use crate::{
+    context::Context,
     descriptor::Descriptor,
-    parser::{AST, Fragment, ParserContext, Position},
+    parser::{AST, Fragment, Position},
 };
 use alloc::string::String;
 
@@ -27,9 +28,7 @@ pub enum ScriptBuilderError<'a> {
     TaprootScriptWithoutInner,
 }
 
-pub(crate) fn build_script<'a>(
-    ctx: &ParserContext<'a>,
-) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
+pub(crate) fn build_script<'a>(ctx: &Context<'a>) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
     let mut script_builder = ScriptBuilder::new();
 
     let mut builder = Builder::new();
@@ -38,7 +37,7 @@ pub(crate) fn build_script<'a>(
 }
 
 pub(crate) fn build_address<'a>(
-    ctx: &ParserContext<'a>,
+    ctx: &Context<'a>,
     network: Network,
 ) -> Result<Address, ScriptBuilderError<'a>> {
     match ctx.descriptor() {
@@ -101,7 +100,7 @@ impl<'a> ScriptBuilder<'a> {
 
     fn build_fragment(
         &mut self,
-        ctx: &ParserContext<'a>,
+        ctx: &Context<'a>,
         ast: &AST,
         mut builder: Builder,
     ) -> Result<Builder, ScriptBuilderError<'a>> {

@@ -4,7 +4,8 @@ use bitcoin::Witness;
 
 use crate::{
     Vec, bitcoin_definition_link,
-    parser::{AST, Fragment, ParserContext, keys::KeyToken},
+    context::Context,
+    parser::{AST, Fragment, keys::KeyToken},
 };
 
 use alloc::string::String;
@@ -185,7 +186,7 @@ const UNAVAILABLE: Satisfaction = Satisfaction {
 /// Satisfy is a function that satisfies a miniscript expression.
 #[doc = bitcoin_definition_link!("8333aa5302902f6be929c30b3c2b4e91c6583224", "script/miniscript.h", 1186)]
 pub(crate) fn satisfy<'a>(
-    ctx: &ParserContext<'a>,
+    ctx: &Context<'a>,
     satisfier: &dyn Satisfier,
     node: &AST,
 ) -> Result<Satisfactions, SatisfyError> {

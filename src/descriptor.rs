@@ -1,4 +1,5 @@
-use crate::parser::{Fragment, ParserContext, Position};
+use crate::context::Context;
+use crate::parser::{Fragment, Position};
 
 /// Script descriptor
 #[derive(Clone, PartialEq)]
@@ -79,9 +80,9 @@ impl DescriptorValidator {
 
     /// Validate the descriptor structure
     /// Not using a Visitor pattern because it's not needed for the current use case.
-    pub fn validate(&self, ctx: &ParserContext) -> Result<(), DescriptorVisitorError> {
+    pub fn validate(&self, ctx: &Context) -> Result<(), DescriptorVisitorError> {
         let descriptor = ctx.descriptor();
-        for ele in ctx.nodes.iter() {
+        for ele in ctx.get_nodes() {
             match &ele.fragment {
                 Fragment::PkK { key } | Fragment::PkH { key } => {
                     if descriptor.is_witness() && !key.is_compressed() {

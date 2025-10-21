@@ -1,36 +1,11 @@
 pub mod keys;
 
-use alloc::string::String;
 use core::str::FromStr;
 
-use bitcoin::{Address, Network, ScriptBuf};
-
+use crate::context::Context;
 use crate::parser::keys::{KeyToken, KeyTokenInner};
-use crate::script::ScriptBuilderError;
 use crate::utils::checksum;
 use crate::{Vec, descriptor::Descriptor};
-
-// AST Visitor
-
-pub(crate) trait ASTVisitor<T> {
-    type Error;
-
-    fn visit_ast(&mut self, ctx: &ParserContext, node: &AST) -> Result<T, Self::Error>;
-
-    #[inline]
-    fn visit_ast_by_index(
-        &mut self,
-        ctx: &ParserContext,
-        index: NodeIndex,
-    ) -> Result<T, Self::Error> {
-        self.visit_ast(ctx, &ctx.nodes[index as usize])
-    }
-
-    #[inline]
-    fn visit(&mut self, ctx: &ParserContext) -> Result<T, Self::Error> {
-        self.visit_ast(ctx, &ctx.get_root())
-    }
-}
 
 // Position
 pub type Position = u16;
@@ -293,15 +268,11 @@ pub enum ParseError<'a> {
     },
 }
 
-#[derive(Clone)]
-pub struct ParserContext<'a> {
+struct ParserContext<'a> {
     tokens: Vec<(&'a str, Position)>,
     current_token: usize,
-    pub(crate) nodes: Vec<AST>,
+    nodes: Vec<AST>,
 
-    root: Option<AST>,
-
-    pub(crate) top_level_descriptor: Option<Descriptor>,
     inner_descriptor: Descriptor,
 }
 
@@ -314,8 +285,6 @@ impl<'a> ParserContext<'a> {
             tokens,
             current_token: 0,
             nodes: Vec::new(),
-            root: None,
-            top_level_descriptor: None,
             inner_descriptor: Descriptor::default(),
         }
     }
@@ -419,114 +388,12 @@ impl<'a> ParserContext<'a> {
         Ok(asts)
     }
 
-    pub fn get_node(&self, index: NodeIndex) -> &AST {
-        &self.nodes[index as usize]
-    }
-
-    pub fn get_root(&self) -> &AST {
-        self.root.as_ref().expect("Root node not found")
-    }
-
-    #[cfg(feature = "satisfy")]
-    pub fn satisfy(
-        &self,
-        satisfier: &dyn crate::satisfy::Satisfier,
-    ) -> Result<crate::satisfy::Satisfactions, crate::satisfy::SatisfyError> {
-        crate::satisfy::satisfy(self, satisfier, &self.get_root())
-    }
-
-    pub fn descriptor(&self) -> Descriptor {
+    fn descriptor(&self) -> Descriptor {
         self.inner_descriptor.clone()
-    }
-
-    pub fn is_wrapped(&self) -> bool {
-        self.top_level_descriptor == Some(Descriptor::Sh)
-    }
-
-    /// Iterate over all the keys.
-    /// Not using a Visitor pattern because it's not needed for the current use case.
-    pub fn iterate_keys_mut(&mut self, mut callback: impl FnMut(&mut KeyToken)) {
-        self.nodes
-            .iter_mut()
-            .for_each(|node| match &mut node.fragment {
-                Fragment::PkK { key } => callback(key),
-                Fragment::PkH { key } => callback(key),
-                Fragment::RawPkH { key } => callback(key),
-                Fragment::Multi { keys, .. } => {
-                    for key in keys.iter_mut() {
-                        callback(key);
-                    }
-                }
-                Fragment::MultiA { keys, .. } => {
-                    for key in keys.iter_mut() {
-                        callback(key);
-                    }
-                }
-                _ => (),
-            });
-    }
-
-    pub fn iterate_keys(&self, mut callback: impl FnMut(&KeyToken)) {
-        self.nodes.iter().for_each(|node| match &node.fragment {
-            Fragment::PkK { key } => callback(key),
-            Fragment::PkH { key } => callback(key),
-            Fragment::RawPkH { key } => callback(key),
-            Fragment::Multi { keys, .. } => {
-                for key in keys.iter() {
-                    callback(key);
-                }
-            }
-            Fragment::MultiA { keys, .. } => {
-                for key in keys.iter() {
-                    callback(key);
-                }
-            }
-            _ => (),
-        });
-    }
-
-    /// Derive all the keys in the AST.
-    pub fn derive(&mut self, index: u32) -> Result<(), String> {
-        for node in &mut self.nodes {
-            match &mut node.fragment {
-                Fragment::PkK { key } | Fragment::PkH { key } | Fragment::RawPkH { key } => {
-                    let derived = key.derive(index)?;
-                    *key = derived;
-                }
-                Fragment::Multi { keys, k } => {
-                    for key in keys.iter_mut() {
-                        let derived = key.derive(index)?;
-                        *key = derived;
-                    }
-                }
-                Fragment::MultiA { keys, k } => {
-                    for key in keys.iter_mut() {
-                        let derived = key.derive(index)?;
-                        *key = derived;
-                    }
-                }
-                _ => (),
-            }
-        }
-        Ok(())
-    }
-
-    /// Serialize the AST to a string.
-    pub fn serialize(&self) -> String {
-        let mut serializer = crate::utils::serialize::Serializer::new();
-        serializer.serialize(self)
-    }
-
-    pub fn build_script(&self) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
-        crate::script::build_script(self)
-    }
-
-    pub fn build_address(&self, network: Network) -> Result<Address, ScriptBuilderError<'a>> {
-        crate::script::build_address(self, network)
     }
 }
 
-pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
+pub(crate) fn parse<'a>(input: &'a str) -> Result<Context<'a>, ParseError<'a>> {
     // check if the input is ascii
     if !input.is_ascii() {
         return Err(ParseError::NonAscii);
@@ -534,8 +401,7 @@ pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
 
     let mut ctx = ParserContext::new(input);
 
-    let root = parse_descriptor(&mut ctx)?;
-    ctx.root = Some(root);
+    let (root, top_level_descriptor) = parse_descriptor(&mut ctx)?;
 
     // should be no more tokens
     let next_token = ctx.peek_token();
@@ -550,10 +416,15 @@ pub fn parse<'a>(input: &'a str) -> Result<ParserContext<'a>, ParseError<'a>> {
         }
     }
 
-    Ok(ctx)
+    Ok(Context::new(
+        ctx.nodes,
+        root,
+        top_level_descriptor,
+        ctx.inner_descriptor,
+    ))
 }
 
-fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>> {
+fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<(AST, Descriptor), ParseError<'a>> {
     let (token, column) = ctx.peek_token().ok_or(ParseError::UnexpectedEof {
         context: "parse_descriptor",
     })?;
@@ -563,24 +434,10 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'
         found: (token, column),
     })?;
 
-    if ctx.top_level_descriptor.is_none() {
-        ctx.top_level_descriptor = Some(descriptor.clone());
-    }
     ctx.inner_descriptor = descriptor.clone();
 
-    // If the descriptor is bare, we need to parse the inner descriptor
-    if descriptor == Descriptor::Bare {
-        let inner = parse_internal(ctx)?;
-        return Ok(AST {
-            position: column,
-            fragment: Fragment::Descriptor {
-                descriptor: Descriptor::Bare,
-                inner: ctx.add_node(inner),
-            },
-        });
-    } else {
-        ctx.next_token("parse_descriptor")?;
-    }
+    // Advance past the descriptor
+    ctx.next_token("parse_descriptor")?;
 
     // For sh descriptors, we need to check what's inside
     if descriptor == Descriptor::Sh
@@ -594,50 +451,39 @@ fn parse_descriptor<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'
     let inner = parse_top_internal(ctx)?;
     let (_r_paren, _r_paren_column) = ctx.expect_token("parse_descriptor", ")")?;
 
-    Ok(AST {
-        position: column,
-        fragment: Fragment::Descriptor {
-            descriptor,
-            inner: ctx.add_node(inner),
+    Ok((
+        AST {
+            position: column,
+            fragment: Fragment::Descriptor {
+                descriptor: descriptor.clone(),
+                inner: ctx.add_node(inner),
+            },
         },
-    })
+        descriptor,
+    ))
 }
 
 fn parse_sh_descriptor<'a>(
     ctx: &mut ParserContext<'a>,
     sh: (&'a str, Position),
-) -> Result<AST, ParseError<'a>> {
+) -> Result<(AST, Descriptor), ParseError<'a>> {
     let (_l_paren, _l_paren_column) = ctx.expect_token("parse_sh_descriptor", "(")?;
 
     // Parse the inner descriptor directly
-    let inner = parse_descriptor(ctx)?;
+    let (inner, inner_descriptor) = parse_descriptor(ctx)?;
 
     let (_r_paren, _r_paren_column) = ctx.expect_token("parse_sh_descriptor", ")")?;
 
-    Ok(AST {
-        position: sh.1,
-        fragment: Fragment::Descriptor {
-            descriptor: Descriptor::Sh,
-            inner: ctx.add_node(inner),
+    Ok((
+        AST {
+            position: sh.1,
+            fragment: Fragment::Descriptor {
+                descriptor: Descriptor::Sh,
+                inner: ctx.add_node(inner),
+            },
         },
-    })
-}
-
-fn is_invalid_number(n: &str) -> bool {
-    n.is_empty() || n.chars().next().map_or(true, |c| !c.is_ascii_digit()) || n.starts_with('0')
-}
-
-fn parse_hex_to_bytes<'a, const N: usize>(
-    h: &'a str,
-    position: Position,
-) -> Result<[u8; N], ParseError<'a>> {
-    use bitcoin::hex::FromHex;
-    let bytes = <[u8; N]>::from_hex(h).map_err(|_| ParseError::UnexpectedToken {
-        expected: "hex string",
-        found: (h, position),
-    })?;
-
-    Ok(bytes)
+        Descriptor::Sh,
+    ))
 }
 
 fn parse_top_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>> {
@@ -1221,4 +1067,21 @@ fn parse_bool<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>> {
             });
         }
     }
+}
+
+fn is_invalid_number(n: &str) -> bool {
+    n.is_empty() || n.chars().next().map_or(true, |c| !c.is_ascii_digit()) || n.starts_with('0')
+}
+
+fn parse_hex_to_bytes<'a, const N: usize>(
+    h: &'a str,
+    position: Position,
+) -> Result<[u8; N], ParseError<'a>> {
+    use bitcoin::hex::FromHex;
+    let bytes = <[u8; N]>::from_hex(h).map_err(|_| ParseError::UnexpectedToken {
+        expected: "hex string",
+        found: (h, position),
+    })?;
+
+    Ok(bytes)
 }

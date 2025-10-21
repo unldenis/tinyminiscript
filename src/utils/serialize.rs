@@ -1,6 +1,9 @@
 use alloc::{format, string::String};
 
-use crate::parser::{AST, Fragment, ParserContext};
+use crate::{
+    context::Context,
+    parser::{AST, Fragment},
+};
 
 /// Serializer for Miniscript descriptors.
 pub struct Serializer {
@@ -14,13 +17,13 @@ impl Serializer {
         }
     }
 
-    pub fn serialize(&mut self, ctx: &ParserContext) -> String {
+    pub fn serialize(&mut self, ctx: &Context) -> String {
         self.output.clear();
         self.serialize_node(ctx, ctx.get_root());
         self.output.clone()
     }
 
-    fn serialize_node(&mut self, ctx: &ParserContext, ast: &AST) {
+    fn serialize_node(&mut self, ctx: &Context, ast: &AST) {
         match &ast.fragment {
             Fragment::False => {
                 self.output.push_str("0");

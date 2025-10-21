@@ -30,6 +30,8 @@
 
 #![cfg_attr(not(test), no_std)]
 
+/// Context for miniscript expressions
+pub mod context;
 /// Bitcoin descriptor parsing and validation
 pub mod descriptor;
 /// Limits for miniscript expressions
@@ -53,9 +55,9 @@ pub(crate) type Vec<T> = alloc::vec::Vec<T>;
 
 // ---
 
-use parser::ASTVisitor;
+use context::ASTVisitor;
 
-use parser::ParserContext;
+use context::Context;
 use type_checker::TypeInfo;
 
 /// Errors that can occur during miniscript parsing, validation, or script building.
@@ -90,8 +92,8 @@ pub enum MiniscriptError<'a> {
 ///
 /// # Returns
 ///
-/// Returns `Ok((ParserContext, ScriptBuf))` on success, where:
-/// - [`ParserContext`] contains the parsed AST and metadata
+/// Returns `Ok((Context, ScriptBuf))` on success, where:
+/// - [`Context`] contains the parsed AST and metadata
 /// - [`ScriptBuf`] is the generated Bitcoin script
 ///
 /// Returns `Err(MiniscriptError)` if parsing, validation, or script generation fails.
@@ -110,7 +112,7 @@ pub enum MiniscriptError<'a> {
 ///     Err(e) => eprintln!("Parse error: {:?}", e),
 /// }
 /// ```
-pub fn parse_script<'a>(script: &'a str) -> Result<ParserContext<'a>, MiniscriptError<'a>> {
+pub fn parse_script<'a>(script: &'a str) -> Result<Context<'a>, MiniscriptError<'a>> {
     let ctx = parser::parse(script).map_err(MiniscriptError::ParserError)?;
 
     // Type check the AST for correctness properties

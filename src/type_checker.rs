@@ -1,6 +1,8 @@
 use crate::{
+    context::ASTVisitor,
+    context::Context,
     descriptor::Descriptor,
-    parser::{AST, ASTVisitor, Fragment, IdentityType, ParserContext, Position},
+    parser::{AST, Fragment, IdentityType, Position},
 };
 use core::cmp;
 
@@ -185,7 +187,7 @@ const TYPE_HASH160: TypeInfo = TypeInfo::new(
 impl ASTVisitor<TypeInfo> for CorrectnessPropertiesVisitor {
     type Error = CorrectnessPropertiesVisitorError;
 
-    fn visit_ast(&mut self, ctx: &ParserContext, node: &AST) -> Result<TypeInfo, Self::Error> {
+    fn visit_ast(&mut self, ctx: &Context, node: &AST) -> Result<TypeInfo, Self::Error> {
         match &node.fragment {
             Fragment::False => Ok(TYPE_FALSE),
             Fragment::True => Ok(TYPE_TRUE),
