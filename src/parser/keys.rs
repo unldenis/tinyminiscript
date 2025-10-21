@@ -150,7 +150,7 @@ impl core::fmt::Display for Wildcard {
 
 #[cfg_attr(feature = "debug", derive(Debug))]
 #[derive(Clone)]
-pub struct ExtendedKey {
+struct ExtendedKey {
     pub raw: String,
     pub origin: Option<(bip32::Fingerprint, bip32::DerivationPath)>,
     pub key: bip32::Xpub,

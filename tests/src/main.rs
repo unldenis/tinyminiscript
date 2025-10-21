@@ -1,6 +1,6 @@
 use std::fmt::format;
 
-use tinyminiscript::MiniscriptError;
+use tinyminiscript::{Context, context::ContextError};
 
 fn main() {
     println!("\n🚀 Starting Miniscript Test Suite");
@@ -90,7 +90,7 @@ fn test_key_derivation() {
 
     println!("📋 Original script: {}", script);
 
-    match tinyminiscript::parse_script(&script) {
+    match Context::try_from(script.as_str()) {
         Ok(mut ctx) => {
             println!("📦 Serialized before derivation: {}", ctx.serialize());
 
@@ -140,7 +140,7 @@ fn test_script_building() {
         println!("\n\n🔍 Build Test {}: {}", i + 1, script);
         println!("{}", "─".repeat(50));
 
-        match tinyminiscript::parse_script(script) {
+        match Context::try_from(*script) {
             Ok(ctx) => match ctx.build_script() {
                 Ok(script_buf) => {
                     println!("✅ Script built successfully");
@@ -209,7 +209,7 @@ fn test_diffs() {
             Err(e) => println!("❌ Error building miniscript descriptor: {:?}", e),
         }
 
-        let ctx = tinyminiscript::parse_script(script);
+        let ctx = Context::try_from(*script);
         if let Err(e) = ctx {
             println!("❌ Error building tinyminiscript descriptor: {:?}", e);
         } else {
@@ -229,12 +229,12 @@ fn test_diffs() {
 #[derive(Debug)]
 #[allow(dead_code)]
 enum Error<'a> {
-    Miniscript(MiniscriptError<'a>),
+    Miniscript(ContextError<'a>),
 }
 
 /// Execute a script and log the results
 fn execute_script<'a>(script: &'a str) -> Result<(), Error<'a>> {
-    let ctx = tinyminiscript::parse_script(script).map_err(Error::Miniscript)?;
+    let ctx = Context::try_from(script).map_err(Error::Miniscript)?;
 
     println!("📦 Bitcoin serialized: {}", ctx.serialize());
 

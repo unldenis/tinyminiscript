@@ -7,7 +7,7 @@ use crate::{
 use core::cmp;
 
 /// The size of an encoding of a number in Script
-pub fn script_num_size(n: usize) -> usize {
+fn script_num_size(n: usize) -> usize {
     match n {
         n if n <= 0x10 => 1,      // OP_n
         n if n < 0x80 => 2,       // OP_PUSH1 <n>
@@ -21,24 +21,24 @@ pub fn script_num_size(n: usize) -> usize {
 // Miniscript Types as bit flags
 
 /// Base
-pub const MINISCRIPT_TYPE_B: u8 = 1 << 0;
+const MINISCRIPT_TYPE_B: u8 = 1 << 0;
 /// Verify
-pub const MINISCRIPT_TYPE_V: u8 = 1 << 1;
+const MINISCRIPT_TYPE_V: u8 = 1 << 1;
 /// Key
-pub const MINISCRIPT_TYPE_K: u8 = 1 << 2;
+const MINISCRIPT_TYPE_K: u8 = 1 << 2;
 /// Wrapped
-pub const MINISCRIPT_TYPE_W: u8 = 1 << 3;
+const MINISCRIPT_TYPE_W: u8 = 1 << 3;
 
 // Properties as bit flags
 
-pub const PROPERTY_Z: u8 = 1 << 0;
-pub const PROPERTY_O: u8 = 1 << 1;
-pub const PROPERTY_N: u8 = 1 << 2;
-pub const PROPERTY_D: u8 = 1 << 3;
-pub const PROPERTY_U: u8 = 1 << 4;
+const PROPERTY_Z: u8 = 1 << 0;
+const PROPERTY_O: u8 = 1 << 1;
+const PROPERTY_N: u8 = 1 << 2;
+const PROPERTY_D: u8 = 1 << 3;
+const PROPERTY_U: u8 = 1 << 4;
 
 #[cfg_attr(feature = "debug", derive(Debug))]
-pub struct TypeInfo {
+pub(crate) struct TypeInfo {
     base_type: u8,
     properties: u8,
 

@@ -17,18 +17,18 @@ const MAX_RECURSION_DEPTH: u32 = 402;
 
 /// Maximum script element size allowed by consensus rules.
 #[doc = bitcoin_definition_link!("8333aa5302902f6be929c30b3c2b4e91c6583224", "script/script.h", 28)]
-pub const MAX_SCRIPT_ELEMENT_SIZE: usize = 520;
+const MAX_SCRIPT_ELEMENT_SIZE: usize = 520;
 
 /// Maximum script size allowed by consensus rules
 #[doc = bitcoin_definition_link!("42b66a6b814bca130a9ccf0a3f747cf33d628232", "script/script.h", 32)]
-pub const MAX_SCRIPT_SIZE: usize = 10_000;
+const MAX_SCRIPT_SIZE: usize = 10_000;
 
 /// Maximum script size allowed by standardness rules
 #[doc = bitcoin_definition_link!("283a73d7eaea2907a6f7f800f529a0d6db53d7a6", "policy/policy.h", 44)]
-pub const MAX_STANDARD_P2WSH_SCRIPT_SIZE: usize = 3600;
+const MAX_STANDARD_P2WSH_SCRIPT_SIZE: usize = 3600;
 
 /// Check if the absolute locktime is within the allowed range.
-pub fn check_absolute_locktime(locktime: u32) -> Result<(), u32> {
+pub(crate) fn check_absolute_locktime(locktime: u32) -> Result<(), u32> {
     if locktime < MIN_ABSOLUTE_LOCKTIME || locktime > MAX_ABSOLUTE_LOCKTIME {
         return Err(locktime);
     }
@@ -43,7 +43,7 @@ pub enum LimitsError {
     MaxRecursiveDepthExceeded { depth: usize, max_depth: u32 },
 }
 
-pub fn check_recursion_depth(depth: usize) -> Result<(), LimitsError> {
+pub(crate) fn check_recursion_depth(depth: usize) -> Result<(), LimitsError> {
     if depth as u32 > MAX_RECURSION_DEPTH {
         return Err(LimitsError::MaxRecursiveDepthExceeded {
             depth,
@@ -53,7 +53,10 @@ pub fn check_recursion_depth(depth: usize) -> Result<(), LimitsError> {
     Ok(())
 }
 
-pub fn check_script_size(descriptor: &Descriptor, script_size: usize) -> Result<(), LimitsError> {
+pub(crate) fn check_script_size(
+    descriptor: &Descriptor,
+    script_size: usize,
+) -> Result<(), LimitsError> {
     match descriptor {
         Descriptor::Bare => {}
         Descriptor::Pkh => {}

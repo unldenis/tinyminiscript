@@ -3,7 +3,7 @@
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
-    use tinyminiscript::{parse_script, parser::Fragment};
+    use tinyminiscript::{Context, parser::Fragment};
 
     let script = match std::str::from_utf8(data) {
         Ok(s) => s,
@@ -14,7 +14,7 @@ fuzz_target!(|data: &[u8]| {
     use std::str::FromStr;
 
     let ms_descriptor = Descriptor::<miniscript::bitcoin::PublicKey>::from_str(script);
-    let ts_descriptor = parse_script(script);
+    let ts_descriptor = Context::try_from(script);
 
     match (ms_descriptor, ts_descriptor) {
         (Ok(_), Ok(_)) => {}

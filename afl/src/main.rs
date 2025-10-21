@@ -10,7 +10,7 @@ fn main() {
             use std::str::FromStr;
 
             let ms_descriptor = Descriptor::<miniscript::bitcoin::PublicKey>::from_str(script);
-            let ts_descriptor = tinyminiscript::parse_script(script);
+            let ts_descriptor = tinyminiscript::Context::try_from(script);
         
             match (ms_descriptor, ts_descriptor) {
                 (Ok(_), Ok(_)) => {}
