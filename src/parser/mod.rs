@@ -393,7 +393,7 @@ impl<'a> ParserContext<'a> {
     }
 }
 
-pub(crate) fn parse<'a>(input: &'a str) -> Result<Context<'a>, ParseError<'a>> {
+pub(crate) fn parse<'a>(input: &'a str) -> Result<Context, ParseError<'a>> {
     // check if the input is ascii
     if !input.is_ascii() {
         return Err(ParseError::NonAscii);

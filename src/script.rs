@@ -28,7 +28,7 @@ pub enum ScriptBuilderError<'a> {
     TaprootScriptWithoutInner,
 }
 
-pub(crate) fn build_script<'a>(ctx: &Context<'a>) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
+pub(crate) fn build_script<'a>(ctx: &Context) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
     let mut script_builder = ScriptBuilder::new();
 
     let mut builder = Builder::new();
@@ -37,7 +37,7 @@ pub(crate) fn build_script<'a>(ctx: &Context<'a>) -> Result<ScriptBuf, ScriptBui
 }
 
 pub(crate) fn build_address<'a>(
-    ctx: &Context<'a>,
+    ctx: &Context,
     network: Network,
 ) -> Result<Address, ScriptBuilderError<'a>> {
     match ctx.descriptor() {
@@ -100,7 +100,7 @@ impl<'a> ScriptBuilder<'a> {
 
     fn build_fragment(
         &mut self,
-        ctx: &Context<'a>,
+        ctx: &Context,
         ast: &AST,
         mut builder: Builder,
     ) -> Result<Builder, ScriptBuilderError<'a>> {

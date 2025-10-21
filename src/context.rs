@@ -27,15 +27,14 @@ pub(crate) trait ASTVisitor<T> {
 }
 
 /// Context for miniscript expressions.
-pub struct Context<'a> {
-    phantom: PhantomData<&'a ()>,
+pub struct Context {
     nodes: Vec<AST>,
     root: AST,
     top_level_descriptor: Descriptor,
     inner_descriptor: Descriptor,
 }
 
-impl<'a> Context<'a> {
+impl Context {
     pub(crate) fn new(
         nodes: Vec<AST>,
         root: AST,
@@ -43,7 +42,6 @@ impl<'a> Context<'a> {
         inner_descriptor: Descriptor,
     ) -> Self {
         Self {
-            phantom: PhantomData,
             nodes,
             root,
             top_level_descriptor,
@@ -166,12 +164,12 @@ impl<'a> Context<'a> {
     }
 
     /// Build the script from the AST.
-    pub fn build_script(&self) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
+    pub fn build_script<'a>(&self) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
         crate::script::build_script(self)
     }
 
     /// Build the address from the AST.
-    pub fn build_address(&self, network: Network) -> Result<Address, ScriptBuilderError<'a>> {
+    pub fn build_address<'a>(&self, network: Network) -> Result<Address, ScriptBuilderError<'a>> {
         crate::script::build_address(self, network)
     }
 }
