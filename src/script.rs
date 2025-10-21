@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use bitcoin::{
-    Address, Network, PubkeyHash, ScriptBuf, key::ParsePublicKeyError, opcodes, script::Builder,
+    key::ParsePublicKeyError, opcodes::{self, OP_0}, script::Builder, Address, Network, PubkeyHash, ScriptBuf
 };
 
 use crate::{
@@ -28,6 +28,13 @@ pub enum ScriptBuilderError<'a> {
     TaprootScriptWithoutInner,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
+pub enum AddressBuilderError<'a> {
+    ScriptBuilder(ScriptBuilderError<'a>),
+    NoAddressForm,
+    NonDefiniteKey(String),
+}
+
 pub(crate) fn build_script<'a>(ctx: &Context) -> Result<ScriptBuf, ScriptBuilderError<'a>> {
     let mut script_builder = ScriptBuilder::new();
 
@@ -39,16 +46,16 @@ pub(crate) fn build_script<'a>(ctx: &Context) -> Result<ScriptBuf, ScriptBuilder
 pub(crate) fn build_address<'a>(
     ctx: &Context,
     network: Network,
-) -> Result<Address, ScriptBuilderError<'a>> {
+) -> Result<Address, AddressBuilderError<'a>> {
     match ctx.descriptor() {
-        Descriptor::Bare => Err(ScriptBuilderError::NoAddressForm),
+        Descriptor::Bare => Err(AddressBuilderError::NoAddressForm),
         Descriptor::Pkh | Descriptor::Pk => {
             let mut key = None;
             ctx.iterate_keys(|k| key = Some(k.clone()));
             let key = key.expect("One key is always present");
             let key = key
                 .as_definite_key()
-                .ok_or_else(|| ScriptBuilderError::NonDefiniteKey(key.identifier()))?;
+                .ok_or_else(|| AddressBuilderError::NonDefiniteKey(key.identifier()))?;
 
             let key = bitcoin::PublicKey::from_slice(&key.to_bytes()).expect("Valid key");
             Ok(Address::p2pkh(key, network))
@@ -59,7 +66,7 @@ pub(crate) fn build_address<'a>(
             let key = key.expect("One key is always present");
             let key = key
                 .as_definite_key()
-                .ok_or_else(|| ScriptBuilderError::NonDefiniteKey(key.identifier()))?;
+                .ok_or_else(|| AddressBuilderError::NonDefiniteKey(key.identifier()))?;
 
             let key = bitcoin::CompressedPublicKey::from_slice(&key.to_bytes()).expect("Valid key");
 
@@ -70,18 +77,18 @@ pub(crate) fn build_address<'a>(
             }
         }
         Descriptor::Sh => {
-            let script = build_script(ctx)?;
+            let script = build_script(ctx).map_err(AddressBuilderError::ScriptBuilder)?;
             Ok(Address::p2sh(script.as_script(), network).expect("Rules validated by parser"))
         }
         Descriptor::Wsh => {
-            let script = build_script(ctx)?;
+            let script = build_script(ctx).map_err(AddressBuilderError::ScriptBuilder)?;
             if ctx.is_wrapped() {
                 Ok(Address::p2shwsh(script.as_script(), network))
             } else {
                 Ok(Address::p2wsh(script.as_script(), network))
             }
         }
-        Descriptor::Tr => unimplemented!(),
+        Descriptor::Tr => Err(AddressBuilderError::NoAddressForm),
     }
 }
 
@@ -336,12 +343,19 @@ impl<'a> ScriptBuilder<'a> {
                 };
                 let hash: PubkeyHash = key.pubkey_hash();
 
-                builder = builder
+                builder = if ctx.descriptor().is_witness() {
+                    builder
+                    .push_opcode(OP_0)
+                    .push_slice(&hash)
+                } else {
+                    builder
                     .push_opcode(opcodes::all::OP_DUP)
                     .push_opcode(opcodes::all::OP_HASH160)
                     .push_slice(&hash)
                     .push_opcode(opcodes::all::OP_EQUALVERIFY)
-                    .push_opcode(opcodes::all::OP_CHECKSIG);
+                    .push_opcode(opcodes::all::OP_CHECKSIG)
+                };
+
                 Ok(builder)
             }
             Fragment::RawTr { key, inner } => {

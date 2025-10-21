@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use crate::descriptor::{self, Descriptor, DescriptorValidator};
 use crate::parser::keys::KeyToken;
 use crate::parser::{Fragment, NodeIndex};
-use crate::script::ScriptBuilderError;
+use crate::script::{AddressBuilderError, ScriptBuilderError};
 use crate::type_checker::CorrectnessPropertiesVisitor;
 use crate::{Vec, parser::AST};
 use crate::{limits, parser, type_checker};
@@ -98,7 +98,6 @@ impl Context {
             .for_each(|node| match &mut node.fragment {
                 Fragment::PkK { key } => callback(key),
                 Fragment::PkH { key } => callback(key),
-                Fragment::RawPkH { key } => callback(key),
                 Fragment::Multi { keys, .. } => {
                     for key in keys.iter_mut() {
                         callback(key);
@@ -109,6 +108,13 @@ impl Context {
                         callback(key);
                     }
                 }
+                Fragment::RawPkH { key } => callback(key),
+                Fragment::RawTr { key, .. } => {
+                    callback(key);
+                }
+                Fragment::RawPk { key } => {
+                    callback(key);
+                }
                 _ => (),
             });
     }
@@ -118,7 +124,6 @@ impl Context {
         self.nodes.iter().for_each(|node| match &node.fragment {
             Fragment::PkK { key } => callback(key),
             Fragment::PkH { key } => callback(key),
-            Fragment::RawPkH { key } => callback(key),
             Fragment::Multi { keys, .. } => {
                 for key in keys.iter() {
                     callback(key);
@@ -128,6 +133,13 @@ impl Context {
                 for key in keys.iter() {
                     callback(key);
                 }
+            }
+            Fragment::RawPkH { key } => callback(key),
+            Fragment::RawTr { key, .. } => {
+                callback(key);
+            }
+            Fragment::RawPk { key } => {
+                callback(key);
             }
             _ => (),
         });
@@ -171,7 +183,7 @@ impl Context {
     }
 
     /// Build the address from the AST.
-    pub fn build_address<'a>(&self, network: Network) -> Result<Address, ScriptBuilderError<'a>> {
+    pub fn build_address<'a>(&self, network: Network) -> Result<Address, AddressBuilderError<'a>> {
         crate::script::build_address(self, network)
     }
 }

@@ -186,6 +186,8 @@ fn test_diffs() {
         "sh(wsh(and_n(lnnnntvunnntvntvunuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuulnlll:pk(020513121919060603051713070408070204050605080413191317319040440514),pk(020612030408191812180952031904040416070406030505021906020517070909))))",
         "tr(020202020202020212131610202020202121316121618171818121715181919190)",
         "tr(3202020020202020202020202020202121316121618171818121715181919190)",
+        "wpkh(022222200000000000000000000000000000000000000008413722338318148499)",
+        "pkh(022222200000000000000000000000000000000000000008413722338318148499)"
     ];
 
     for (i, script) in scripts.iter().enumerate() {
@@ -205,6 +207,13 @@ fn test_diffs() {
                 } else {
                     println!("❌ Miniscript script is None");
                 }
+
+                let ms_address = desc.address(bitcoin::network::Network::Bitcoin);
+                if let Ok(address) = ms_address {
+                    println!("📜 Miniscript address: {}", address);
+                } else {
+                    println!("❌ Miniscript address is None");
+                }
             }
             Err(e) => println!("❌ Error building miniscript descriptor: {:?}", e),
         }
@@ -221,6 +230,13 @@ fn test_diffs() {
                 println!("📜 TinyMiniscript script: {}", script.to_asm_string());
             } else {
                 println!("❌ TinyMiniscript script is None");
+            }
+
+            let ts_address = ctx.build_address(bitcoin::Network::Bitcoin);
+            if let Ok(address) = ts_address {
+                println!("📜 TinyMiniscript address: {}", address);
+            } else {
+                println!("❌ TinyMiniscript address is None");
             }
         }
     }
