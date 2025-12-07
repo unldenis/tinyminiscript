@@ -841,7 +841,7 @@ fn parse_internal<'a>(ctx: &mut ParserContext<'a>) -> Result<AST, ParseError<'a>
                 found: (k, k_column),
             })?;
 
-            let estimated_tokens = k as usize;
+            let estimated_tokens = core::cmp::min(k as usize, 1000);
             let mut xs = Vec::with_capacity(estimated_tokens);
 
             while let Some((token, _column)) = ctx.peek_token() {
